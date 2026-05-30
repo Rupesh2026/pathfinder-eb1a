@@ -1,0 +1,12 @@
+{
+  "name": "eb1a-agent-system",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"agents,frontend\" --prefix-colors \"cyan,magenta\" \"npm run dev:agents\" \"npm run dev:frontend\"",
+    "dev:agents": "cd agents && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "dev:frontend": "cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

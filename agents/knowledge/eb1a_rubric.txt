@@ -1,0 +1,91 @@
+EB-1A EXTRAORDINARY ABILITY — KNOWLEDGE BASE
+============================================
+
+## THE 10 CRITERIA
+A petitioner must meet at least 3 criteria. A strong case meets 5-6 with substantial evidence.
+All criteria must tell one coherent narrative in the petition.
+
+1. awards          — Nationally or internationally recognized prizes or awards for excellence
+2. memberships     — Membership in associations requiring outstanding achievement
+3. press           — Published material about the person in major trade/major media
+4. judging         — Participation as a judge of others' work in the field
+5. original_contributions — Original scientific, scholarly, or business-related contributions of major significance
+6. scholarly_articles — Authorship of scholarly articles in professional journals or major media
+7. artistic_exhibitions — Display of work at artistic exhibitions (rarely applicable for tech)
+8. critical_role   — Performance of a critical or essential role at distinguished organizations
+9. high_salary     — Commanding a high salary or remuneration relative to others in the field
+10. commercial_success — Commercial successes in the performing arts (rarely applicable)
+
+---
+
+## STRENGTH RUBRIC (AI/ML field)
+
+### Publications / Scholarly Articles (criterion: scholarly_articles)
+- STRONG (80-100): NeurIPS, ICML, ICLR, ACL, CVPR accepted paper
+- MEDIUM (50-79): IEEE Transactions, ACM conferences, AAAI
+- WEAK (10-49): arXiv only, workshops, no citations
+- Citation benchmarks: 50+ citations = strong, 10-50 = medium, under 10 = weak
+
+### Judging (criterion: judging)
+- STRONG (75-100): NeurIPS/ICML/ICLR reviewer, major industry competition judge
+- MEDIUM (40-74): IEEE/ACM program committee, mid-tier conference reviewer
+- WEAK (10-39): Online hackathon judge, student competition, internal panels
+- ZERO: No evidence — flag as critical gap, trigger RFE warning
+
+### Press / Media (criterion: press)
+- STRONG (75-100): NYT, Wired, TechCrunch, VentureBeat article ABOUT the person (not by them)
+- MEDIUM (40-74): Industry blog byline, podcast appearance, conference coverage about them
+- WEAK (10-39): Company blog, personal blog, LinkedIn posts only
+
+### High Salary (criterion: high_salary)
+- STRONG (80-100): Top 10% for role + metro area, documented with offer letter or LCA
+- MEDIUM (50-79): Top 25%, documented
+- WEAK (20-49): Above average but undocumented
+
+### Original Contributions (criterion: original_contributions)
+- STRONG (75-100): Patent granted, widely adopted open-source (1000+ GitHub stars), cited methodology
+- MEDIUM (40-74): Patent pending, 500+ star repo, cited in other papers
+- WEAK (10-39): Internal tools, small open-source, uncited work
+
+### Critical Role (criterion: critical_role)
+- STRONG (75-100): CTO/VP/Director at recognized org, documented scope and team size
+- MEDIUM (45-74): Staff/Principal engineer leading team at known company
+- WEAK (20-44): Senior IC without documented leadership scope
+
+### Awards (criterion: awards)
+- STRONG (75-100): Forbes 30 Under 30, major industry award, government recognition
+- MEDIUM (35-74): Company award with external recognition, regional award
+- WEAK (10-34): Internal-only awards
+
+### Memberships (criterion: memberships)
+- STRONG (75-100): IEEE Senior Member, invitation-only AI council, National Academy
+- MEDIUM (40-74): ACM Senior Member, selective professional board
+- WEAK (5-39): Standard ACM/IEEE membership, open associations
+
+---
+
+## SCORE THRESHOLDS
+- score >= 65: STRONG — sufficient evidence for this criterion
+- score 40-64: BUILDING — some evidence, needs strengthening
+- score < 40: CRITICAL GAP — flag for urgent action, common RFE trigger
+- score = 0 or null: NO EVIDENCE — highest priority to address
+
+---
+
+## COMMON RFE TRIGGERS (warn users proactively)
+- Judging evidence is online-only or student-level
+- No recommendation letters from independent experts outside the user's own organization
+- Press is self-authored, not written about the person by a third party
+- Salary claim lacks third-party documentation (offer letters, LCA filings, compensation surveys)
+- Contributions lack evidence of impact (no citations, no adoption metrics, no industry uptake)
+- Critical role lacks org chart, scope documentation, or employer verification letter
+- Only 3 criteria met with borderline scores (aim for 5-6 to be safe)
+
+---
+
+## SCORING GUIDANCE
+Be conservative — USCIS officers are skeptical. If evidence is borderline between two tiers,
+score at the lower tier. The user is better served by an honest low score that drives action
+than a generous score that leads to an RFE after filing.
+
+When evidence is missing or ambiguous, ask for clarification rather than assuming.

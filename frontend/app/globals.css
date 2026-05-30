@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Criterion strength colors */
+  --criterion-green: #1D9E75;
+  --criterion-blue: #378ADD;
+  --criterion-amber: #BA7517;
+  --criterion-red: #E24B4A;
+
+  /* Urgency badge colors */
+  --urgency-red-bg: #FCEBEB;
+  --urgency-red-text: #A32D2D;
+  --urgency-amber-bg: #FAEEDA;
+  --urgency-amber-text: #854F0B;
+  --urgency-green-bg: #EAF3DE;
+  --urgency-green-text: #3B6D11;
+
+  /* Surface / layout */
+  --card-bg: #FFFFFF;
+  --card-border-color: rgba(0, 0, 0, 0.09);
+  --secondary-bg: #F7F8FA;
+  --page-bg: #F2F3F5;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --text-tertiary: #9CA3AF;
+  --divider: rgba(0, 0, 0, 0.07);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --card-bg: #1C1C2E;
+    --card-border-color: rgba(255, 255, 255, 0.08);
+    --secondary-bg: #16162A;
+    --page-bg: #0F0F1E;
+    --text-primary: #F9FAFB;
+    --text-secondary: #D1D5DB;
+    --text-tertiary: #6B7280;
+    --divider: rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* Shared card style */
+.card {
+  background: var(--card-bg);
+  border: 0.5px solid var(--card-border-color);
+  border-radius: 10px;
+}
+
+/* Stat metric card (no border) */
+.stat-card {
+  background: var(--secondary-bg);
+  border-radius: 10px;
+}

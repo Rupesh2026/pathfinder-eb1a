@@ -1,0 +1,4 @@
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS scan_status TEXT DEFAULT 'idle',
+  ADD COLUMN IF NOT EXISTS scan_started_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS scan_finished_at TIMESTAMPTZ;

@@ -1,0 +1,56 @@
+services:
+  # ── Web service: FastAPI agent server ──────────────────────────────────────
+  - type: web
+    name: eb1a-agent-server
+    env: python
+    rootDir: agents
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Supabase — service role key bypasses RLS (agents only, never frontend)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # LLM — choose gemini (AI Studio) or openai
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      # Optional: Vertex AI instead of AI Studio
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      # Web search (Tavily)
+      - key: TAVILY_API_KEY
+        sync: false
+      # Cron security — same key configured in both services below
+      - key: CRON_API_KEY
+        sync: false
+
+  # ── Cron: daily pipeline at 7:00 AM UTC ────────────────────────────────────
+  - type: cron
+    name: eb1a-daily-trigger
+    env: python
+    rootDir: agents
+    schedule: "0 7 * * *"
+    buildCommand: pip install httpx
+    startCommand: python cron_trigger.py daily
+    envVars:
+      - key: SERVICE_URL
+        sync: false            # set to your Render web service URL
+      - key: CRON_API_KEY
+        sync: false
+
+  # ── Cron: weekly reflection at midnight UTC Sunday ──────────────────────────
+  - type: cron
+    name: eb1a-weekly-trigger
+    env: python
+    rootDir: agents
+    schedule: "0 0 * * 0"
+    buildCommand: pip install httpx
+    startCommand: python cron_trigger.py weekly
+    envVars:
+      - key: SERVICE_URL
+        sync: false            # same URL as above
+      - key: CRON_API_KEY
+        sync: false
