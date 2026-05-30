@@ -3,37 +3,63 @@
 import { useState, useTransition } from 'react'
 import { markActionDone } from '@/app/actions/plans'
 import type { DailyPlanAction } from '@/lib/types'
+import { RotateCcw, Clock, Calendar } from 'lucide-react'
 
-type Props = {
-  action: DailyPlanAction
-  planId: string
+type Props = { action: DailyPlanAction; planId: string }
+
+const CRITERION_COLORS: Record<string, string> = {
+  judging: 'var(--c-judging)',
+  awards: 'var(--c-awards)',
+  press: 'var(--c-press)',
+  memberships: 'var(--c-memberships)',
+  original_contributions: 'var(--c-contributions)',
+  scholarly_articles: 'var(--c-scholarly)',
+  critical_role: 'var(--c-critical_role)',
+  high_salary: 'var(--c-high_salary)',
 }
 
 export default function DailyPlanCard({ action, planId }: Props) {
   const [done, setDone] = useState(action.done)
   const [isPending, startTransition] = useTransition()
+  const accentColor = CRITERION_COLORS[action.criterion] ?? 'var(--accent)'
 
   function handleCheck(checked: boolean) {
-    setDone(checked) // optimistic
+    setDone(checked)
     startTransition(async () => { await markActionDone(planId, action.rank, checked) })
   }
 
   return (
-    <div className={`rounded-lg border p-5 transition-opacity ${done ? 'opacity-50' : 'opacity-100'} border-gray-200 bg-white`}>
+    <div
+      className="card-interactive p-5 transition-opacity"
+      style={{
+        opacity: done ? 0.55 : 1,
+        borderLeft: done ? 'none' : `2px solid ${accentColor}`,
+        paddingLeft: done ? '20px' : '18px',
+      }}
+    >
       <div className="flex items-start gap-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+        <div
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
+          style={{ background: done ? 'var(--bg-overlay)' : `${accentColor}20`, color: done ? 'var(--text-muted)' : accentColor }}
+        >
           {action.rank}
         </div>
 
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 space-y-2 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex flex-col gap-1">
+            <div className="min-w-0">
               {action.carried_forward && (
-                <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                  Carried forward
+                <span className="badge badge-amber mb-1.5 inline-flex">
+                  <RotateCcw size={9} /> Carried forward
                 </span>
               )}
-              <h3 className={`font-semibold text-gray-900 ${done ? 'line-through' : ''}`}>
+              <h3
+                className="text-sm font-semibold leading-snug"
+                style={{
+                  color: done ? 'var(--text-muted)' : 'var(--text-primary)',
+                  textDecoration: done ? 'line-through' : 'none',
+                }}
+              >
                 {action.title}
               </h3>
             </div>
@@ -41,21 +67,34 @@ export default function DailyPlanCard({ action, planId }: Props) {
               type="checkbox"
               checked={done}
               disabled={isPending}
-              onChange={(e) => handleCheck(e.target.checked)}
-              className="mt-1 h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 disabled:opacity-50"
+              onChange={e => handleCheck(e.target.checked)}
+              className="mt-0.5 flex-shrink-0"
             />
           </div>
 
-          <p className="text-sm text-gray-600">{action.why}</p>
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{action.why}</p>
 
-          <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-            <span className="rounded-full bg-indigo-50 px-2.5 py-1 font-medium text-indigo-700">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="badge"
+              style={{ background: `${accentColor}15`, color: accentColor, border: `1px solid ${accentColor}30` }}
+            >
               {action.criterion}
             </span>
-            <span>Deadline: {action.deadline}</span>
-            <span>Time: {action.time_required}</span>
+            {action.deadline && (
+              <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                <Calendar size={10} /> {action.deadline}
+              </span>
+            )}
+            {action.time_required && (
+              <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                <Clock size={10} /> {action.time_required}
+              </span>
+            )}
             {action.evidence_gain > 0 && (
-              <span className="text-green-600">+{action.evidence_gain} score</span>
+              <span className="text-[11px] font-medium" style={{ color: 'var(--green)' }}>
+                +{action.evidence_gain} pts
+              </span>
             )}
           </div>
         </div>

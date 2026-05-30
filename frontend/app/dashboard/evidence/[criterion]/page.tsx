@@ -31,17 +31,17 @@ const NEXT_ACTIONS: Record<CriterionType, string[]> = {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 65) return 'var(--criterion-green)'
-  if (score >= 40) return 'var(--criterion-blue)'
-  if (score >= 20) return 'var(--criterion-amber)'
-  return 'var(--criterion-red)'
+  if (score >= 65) return 'var(--green)'
+  if (score >= 40) return 'var(--blue)'
+  if (score >= 20) return 'var(--amber)'
+  return 'var(--red)'
 }
 
 function scoreBg(score: number): string {
-  if (score >= 65) return '#E8F7F2'
-  if (score >= 40) return '#E8F0FB'
-  if (score >= 20) return '#FDF5E0'
-  return '#FDEAEA'
+  if (score >= 65) return 'var(--green-subtle)'
+  if (score >= 40) return 'var(--blue-subtle)'
+  if (score >= 20) return 'var(--amber-subtle)'
+  return 'var(--red-subtle)'
 }
 
 function tierLabel(score: number): string {
@@ -221,14 +221,14 @@ export default function CriterionDetailPage() {
           <button
             onClick={() => setShowForm(v => !v)}
             className="rounded-lg px-3 py-1.5 text-xs font-semibold"
-            style={{ background: '#111827', color: '#fff' }}
+            style={{ background: 'var(--accent)', color: '#fff' }}
           >
             {showForm ? 'Cancel' : '+ Add Evidence'}
           </button>
         </div>
 
         {formError && (
-          <p className="rounded-lg px-3 py-2 text-xs" style={{ background: '#FDEAEA', color: 'var(--criterion-red)' }}>
+          <p className="rounded-lg px-3 py-2 text-xs" style={{ background: 'var(--red-subtle)', color: 'var(--red)', border: '1px solid var(--red-border)' }}>
             {formError}
           </p>
         )}
@@ -284,7 +284,7 @@ export default function CriterionDetailPage() {
               type="submit"
               disabled={isPending}
               className="rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50"
-              style={{ background: '#111827', color: '#fff' }}
+              style={{ background: 'var(--accent)', color: '#fff' }}
             >
               {isPending ? 'Saving…' : 'Save evidence'}
             </button>
@@ -376,7 +376,7 @@ export default function CriterionDetailPage() {
           <div className="card p-5 space-y-3">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>RFE Risk Alerts</h2>
-              <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: '#FDEAEA', color: 'var(--criterion-red)' }}>
+              <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: 'var(--red-subtle)', color: 'var(--red)', border: '1px solid var(--red-border)' }}>
                 {flags.length} {flags.length === 1 ? 'flag' : 'flags'}
               </span>
             </div>
@@ -386,8 +386,8 @@ export default function CriterionDetailPage() {
                   key={i}
                   className="rounded-lg p-3 space-y-1"
                   style={{
-                    background: flag.level === 'high' ? '#FDEAEA' : '#FDF5E0',
-                    border: `0.5px solid ${flag.level === 'high' ? 'var(--criterion-red)' : 'var(--criterion-amber)'}`,
+                    background: flag.level === 'high' ? 'var(--red-subtle)' : 'var(--amber-subtle)',
+                    border: `1px solid ${flag.level === 'high' ? 'var(--red-border)' : 'var(--amber-border)'}`,
                   }}
                 >
                   <div className="flex items-center gap-2">

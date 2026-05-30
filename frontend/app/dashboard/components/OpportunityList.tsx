@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { MapPin, Globe } from 'lucide-react'
 import type { OpportunityItem, OutcomeItem } from '../hooks/useDashboard'
 import { CRITERION_LABELS, type CriterionType } from '@/lib/types'
 import { getModeBadge, countryLabel } from '@/lib/opportunity-visibility'
@@ -104,7 +105,7 @@ export default function OpportunityList({ opportunities, loading, lastScannedAt,
             className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
             style={
               activeTab === tab.key
-                ? { background: '#111827', color: '#fff' }
+                ? { background: 'var(--accent)', color: '#fff' }
                 : { background: 'var(--secondary-bg)', color: 'var(--text-secondary)' }
             }
           >
@@ -156,21 +157,36 @@ export default function OpportunityList({ opportunities, loading, lastScannedAt,
                     </p>
                   )}
 
-                  {/* Metadata row: criterion · mode badge · location · deadline · link */}
+                  {/* Metadata: criterion · mode badge · location · deadline · link */}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     {opp.criterion && (
                       <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                         {CRITERION_LABELS[opp.criterion as CriterionType] ?? opp.criterion}
                       </span>
                     )}
-                    {/* Mode badge: green=online, amber=in-person, purple=hybrid */}
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${modeBadge.classes}`}>
+                    {/* Mode badge — same palette as OpportunityCard */}
+                    <span
+                      className="rounded-full px-2 py-0.5 text-xs font-medium"
+                      style={{
+                        background: opp.delivery_mode === 'online' ? 'var(--green-subtle)'
+                          : opp.delivery_mode === 'hybrid' ? 'rgba(167,139,250,0.12)'
+                          : 'var(--amber-subtle)',
+                        color: opp.delivery_mode === 'online' ? 'var(--green)'
+                          : opp.delivery_mode === 'hybrid' ? 'var(--c-memberships)'
+                          : 'var(--amber)',
+                        border: `1px solid ${opp.delivery_mode === 'online' ? 'var(--green-border)'
+                          : opp.delivery_mode === 'hybrid' ? 'rgba(167,139,250,0.3)'
+                          : 'var(--amber-border)'}`,
+                      }}
+                    >
                       {modeBadge.label}
                     </span>
-                    {/* Location chip */}
+                    {/* Location */}
                     <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      <span>{opp.is_us ? '📍' : '🌐'}</span>
-                      <span>{place}</span>
+                      {opp.is_us
+                        ? <MapPin size={10} />
+                        : <Globe size={10} />}
+                      {place}
                     </span>
                     <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                       {formatDeadline(opp.deadline)}
@@ -194,7 +210,7 @@ export default function OpportunityList({ opportunities, loading, lastScannedAt,
                     onClick={() => handleApply(opp)}
                     disabled={pending.has(opp.id)}
                     className="rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-                    style={{ background: '#111827', color: '#fff' }}
+                    style={{ background: 'var(--accent)', color: '#fff' }}
                   >
                     Apply
                   </button>

@@ -3,17 +3,24 @@
 import { useState } from 'react'
 import type { OutcomeItem } from '../hooks/useDashboard'
 import { CRITERION_LABELS, type CriterionType } from '@/lib/types'
+import { CheckCircle2, XCircle, Clock, MinusCircle } from 'lucide-react'
 
 const STATUS_OPTIONS = ['pending', 'accepted', 'rejected', 'withdrawn'] as const
 
-function statusStyle(status: string): React.CSSProperties {
-  const map: Record<string, React.CSSProperties> = {
-    accepted: { color: 'var(--criterion-green)', background: '#E8F7F2' },
-    rejected: { color: 'var(--criterion-red)', background: '#FDEAEA' },
-    withdrawn: { color: 'var(--text-tertiary)', background: 'var(--secondary-bg)' },
-    pending: { color: 'var(--criterion-amber)', background: '#FDF5E0' },
+function StatusBadge({ status }: { status: string }) {
+  const configs: Record<string, { icon: React.ReactNode; className: string }> = {
+    accepted:  { icon: <CheckCircle2 size={10} />, className: 'badge-green' },
+    rejected:  { icon: <XCircle size={10} />,     className: 'badge-red' },
+    pending:   { icon: <Clock size={10} />,        className: 'badge-amber' },
+    withdrawn: { icon: <MinusCircle size={10} />,  className: 'badge-muted' },
   }
-  return map[status] ?? map.pending
+  const cfg = configs[status] ?? configs.pending
+  return (
+    <span className={`badge ${cfg.className}`}>
+      {cfg.icon}
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  )
 }
 
 function formatDate(iso: string): string {
@@ -29,9 +36,11 @@ type Props = {
 
 export default function OutcomeTracker({ outcomes, loading, onStatusChange, onError }: Props) {
   const [pending, setPending] = useState<Set<string>>(new Set())
+  const [editing, setEditing] = useState<string | null>(null)
 
   async function handleStatusChange(id: string, status: string) {
-    onStatusChange(id, status) // optimistic
+    onStatusChange(id, status)
+    setEditing(null)
     setPending(prev => { const s = new Set(prev); s.add(id); return s })
 
     try {
@@ -40,10 +49,7 @@ export default function OutcomeTracker({ outcomes, loading, onStatusChange, onEr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      if (!res.ok) {
-        const err = await res.json()
-        onError(err.error ?? 'Failed to update outcome')
-      }
+      if (!res.ok) onError('Failed to update outcome')
     } catch {
       onError('Failed to update outcome')
     } finally {
@@ -51,62 +57,77 @@ export default function OutcomeTracker({ outcomes, loading, onStatusChange, onEr
     }
   }
 
+  const accepted = outcomes.filter(o => o.status === 'accepted').length
+
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Outcome Tracker</h2>
-        {!loading && (
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {outcomes.filter(o => o.status === 'accepted').length} accepted
-          </span>
+        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Applications</h2>
+        {!loading && accepted > 0 && (
+          <span className="badge badge-green">{accepted} accepted</span>
         )}
       </div>
 
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-12 animate-pulse rounded" style={{ background: 'var(--secondary-bg)' }} />
+            <div key={i} className="skeleton h-12 w-full rounded-lg" />
           ))}
         </div>
       ) : outcomes.length === 0 ? (
-        <div className="py-6 text-center">
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>No outcomes yet. Apply to opportunities to start tracking.</p>
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full" style={{ background: 'var(--bg-raised)' }}>
+            <span className="text-lg">📝</span>
+          </div>
+          <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>No applications yet</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Apply to opportunities to track results</p>
         </div>
       ) : (
         <div className="space-y-2">
           {outcomes.map(o => (
             <div
               key={o.id}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-              style={{ background: 'var(--secondary-bg)' }}
+              className="rounded-xl p-3 transition-colors"
+              style={{ background: 'var(--bg-raised)' }}
             >
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {o.opportunity_title}
-                </p>
-                <div className="mt-0.5 flex items-center gap-2">
-                  {o.criterion && (
-                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      {CRITERION_LABELS[o.criterion as CriterionType] ?? o.criterion}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {o.opportunity_title}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    {o.criterion && (
+                      <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                        {CRITERION_LABELS[o.criterion as CriterionType] ?? o.criterion}
+                      </span>
+                    )}
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                      {formatDate(o.created_at)}
                     </span>
-                  )}
-                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    {formatDate(o.created_at)}
-                  </span>
+                  </div>
                 </div>
-              </div>
 
-              <select
-                value={o.status}
-                disabled={pending.has(o.id)}
-                onChange={e => handleStatusChange(o.id, e.target.value)}
-                className="shrink-0 cursor-pointer rounded-full border-0 px-2.5 py-1 text-xs font-semibold focus:outline-none disabled:opacity-50"
-                style={{ ...statusStyle(o.status), appearance: 'auto' }}
-              >
-                {STATUS_OPTIONS.map(s => (
-                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                ))}
-              </select>
+                {/* Status selector */}
+                {editing === o.id ? (
+                  <select
+                    value={o.status}
+                    disabled={pending.has(o.id)}
+                    onChange={e => handleStatusChange(o.id, e.target.value)}
+                    onBlur={() => setEditing(null)}
+                    autoFocus
+                    className="input text-xs py-1 px-2 w-auto"
+                    style={{ width: '110px' }}
+                  >
+                    {STATUS_OPTIONS.map(s => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <button onClick={() => setEditing(o.id)} className="flex-shrink-0">
+                    <StatusBadge status={o.status} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

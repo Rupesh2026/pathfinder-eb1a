@@ -31,11 +31,11 @@ const STATUS_LABELS: Record<LetterStatus, string> = {
 }
 
 const STATUS_COLORS: Record<LetterStatus, { bg: string; color: string }> = {
-  not_asked: { bg: 'var(--secondary-bg)', color: 'var(--text-tertiary)' },
-  asked:     { bg: '#FDF5E0', color: 'var(--criterion-amber)' },
-  agreed:    { bg: '#E8F0FB', color: 'var(--criterion-blue)' },
-  draft_sent:{ bg: '#E8F0FB', color: 'var(--criterion-blue)' },
-  received:  { bg: '#E8F7F2', color: 'var(--criterion-green)' },
+  not_asked: { bg: 'var(--bg-raised)',    color: 'var(--text-muted)' },
+  asked:     { bg: 'var(--amber-subtle)', color: 'var(--amber)' },
+  agreed:    { bg: 'var(--blue-subtle)',  color: 'var(--blue)' },
+  draft_sent:{ bg: 'var(--blue-subtle)',  color: 'var(--blue)' },
+  received:  { bg: 'var(--green-subtle)', color: 'var(--green)' },
 }
 
 function formatDate(d: string) {
@@ -127,8 +127,8 @@ export default function LettersPage() {
             <span
               className="rounded-full px-3 py-1 text-xs font-semibold"
               style={{
-                background: receivedCount >= 3 ? '#E8F7F2' : '#FDF5E0',
-                color: receivedCount >= 3 ? 'var(--criterion-green)' : 'var(--criterion-amber)',
+                background: receivedCount >= 3 ? 'var(--green-subtle)' : 'var(--amber-subtle)',
+                color: receivedCount >= 3 ? 'var(--green)' : 'var(--amber)',
               }}
             >
               {receivedCount}/3 received
@@ -137,7 +137,7 @@ export default function LettersPage() {
           <button
             onClick={() => setShowForm(v => !v)}
             className="rounded-lg px-3 py-1.5 text-xs font-semibold"
-            style={{ background: '#111827', color: '#fff' }}
+            style={{ background: 'var(--accent)', color: '#fff' }}
           >
             {showForm ? 'Cancel' : '+ Add Recommender'}
           </button>
@@ -145,7 +145,7 @@ export default function LettersPage() {
       </div>
 
       {error && (
-        <p className="rounded-lg px-3 py-2 text-xs" style={{ background: '#FDEAEA', color: 'var(--criterion-red)' }}>
+        <p className="rounded-lg px-3 py-2 text-xs" style={{ background: 'var(--red-subtle)', color: 'var(--red)', border: '1px solid var(--red-border)' }}>
           {error}
         </p>
       )}
@@ -227,7 +227,7 @@ export default function LettersPage() {
             type="submit"
             disabled={isPending}
             className="rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50"
-            style={{ background: '#111827', color: '#fff' }}
+            style={{ background: 'var(--accent)', color: '#fff' }}
           >
             {isPending ? 'Saving…' : 'Add recommender'}
           </button>

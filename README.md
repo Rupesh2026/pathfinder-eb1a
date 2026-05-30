@@ -1,8 +1,10 @@
-# EB-1A Agent System
+# Pathfinder — EB-1A Case Builder
 
 An open-source multi-agent system that helps you build your EB-1A (extraordinary ability) immigration case. Agents run daily, discover real opportunities worldwide that fill your evidence gaps, score your profile against USCIS standards, and deliver a personalized action plan every morning — without you having to prompt anything.
 
 > Built with Next.js, Supabase, Python + Google ADK, and OpenAI/Gemini.
+
+![Pathfinder Dashboard](docs/dashboard-preview.png)
 
 ---
 
@@ -137,7 +139,7 @@ All user tables use Row Level Security (`auth.uid() = user_id`). The agent servi
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/eb1a-agent-system
+git clone https://github.com/Rupesh2026/pathfinder-eb1a
 cd eb1a-agent-system
 
 # Frontend

@@ -2,15 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Send, Bot, User, BookOpen, Loader2, Sparkles } from 'lucide-react'
 
 type Message = { role: 'user' | 'assistant'; content: string }
-
-const GREETING: Message = {
-  role: 'assistant',
-  content:
-    "Hi! I'm your EB-1A strategy advisor. I have full context of your case — criteria scores, gaps, and recent outcomes.\n\nAsk me anything: how to strengthen a specific criterion, what evidence to prioritize, how to interpret your scores, or how to build a compelling petition narrative.",
-}
-
 type AdvisorContext = {
   domain?: string
   role?: string
@@ -20,7 +14,17 @@ type AdvisorContext = {
   recentOutcomes?: { title: string; status: string }[]
 }
 
-type KBChunk = { content: string; source: string; title: string; similarity: number }
+const GREETING: Message = {
+  role: 'assistant',
+  content: "Hi! I'm your EB-1A strategy advisor. I have full context of your case — criteria scores, gaps, and recent outcomes.\n\nAsk me anything: how to strengthen a specific criterion, what evidence to prioritize, how to interpret your scores, or how to build a compelling petition narrative.",
+}
+
+const SUGGESTIONS = [
+  'Which criterion should I focus on first?',
+  'How do I build a strong judging evidence case?',
+  'What makes a compelling extraordinary ability narrative?',
+  'Review my evidence gaps and suggest next steps',
+]
 
 export default function AdvisorPage() {
   const [messages, setMessages] = useState<Message[]>([GREETING])
@@ -46,13 +50,9 @@ export default function AdvisorPage() {
       ])
 
       const profile = profileRes.data
-      const criteria: { criterion: string; label: string; score: number }[] = criteriaRes.ok
-        ? await criteriaRes.json()
-        : []
+      const criteria: { criterion: string; label: string; score: number }[] = criteriaRes.ok ? await criteriaRes.json() : []
       const summary = summaryRes.ok ? await summaryRes.json() : {}
-      const outcomesArr: { opportunity_title: string; status: string }[] = outcomesRes.ok
-        ? await outcomesRes.json()
-        : []
+      const outcomesArr: { opportunity_title: string; status: string }[] = outcomesRes.ok ? await outcomesRes.json() : []
 
       const criteriaScores: Record<string, number> = {}
       const gaps: string[] = []
@@ -88,16 +88,14 @@ export default function AdvisorPage() {
         body: JSON.stringify({ message }),
       })
       if (!res.ok) return ''
-      const { chunks, context: kbCtx } = await res.json() as { chunks: KBChunk[]; context: string }
+      const { chunks, context: kbCtx } = await res.json()
       if (chunks?.length) setKbBacked(true)
       return kbCtx || ''
-    } catch {
-      return ''
-    }
+    } catch { return '' }
   }
 
-  async function sendMessage() {
-    const trimmed = input.trim()
+  async function sendMessage(text?: string) {
+    const trimmed = (text ?? input).trim()
     if (!trimmed || streaming) return
     setInput('')
 
@@ -107,11 +105,8 @@ export default function AdvisorPage() {
     setStreaming(true)
     setKbBacked(false)
 
-    // Fetch USCIS precedent context and prepend to system context
     const kbContext = await fetchKBContext(trimmed)
-    const enrichedContext = kbContext
-      ? { ...context, kbPrecedent: kbContext }
-      : context
+    const enrichedContext = kbContext ? { ...context, kbPrecedent: kbContext } : context
 
     try {
       const response = await fetch('/api/dashboard/chat', {
@@ -122,15 +117,8 @@ export default function AdvisorPage() {
 
       if (!response.ok || !response.body) {
         let errText = 'Could not connect. Check that ANTHROPIC_API_KEY or GEMINI_API_KEY is set.'
-        try {
-          const j = await response.json()
-          if (j.error) errText = j.error
-        } catch {}
-        setMessages(prev => {
-          const u = [...prev]
-          u[u.length - 1] = { role: 'assistant', content: errText }
-          return u
-        })
+        try { const j = await response.json(); if (j.error) errText = j.error } catch {}
+        setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: errText }; return u })
         setStreaming(false)
         return
       }
@@ -148,167 +136,158 @@ export default function AdvisorPage() {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
           const data = line.slice(6).trim()
-          if (data === '[DONE]') {
-            setStreaming(false)
-            return
-          }
+          if (data === '[DONE]') { setStreaming(false); return }
           try {
             const { text, error } = JSON.parse(data)
-            if (error) {
-              setMessages(prev => {
-                const u = [...prev]
-                u[u.length - 1] = { role: 'assistant', content: `Error: ${error}` }
-                return u
-              })
-              setStreaming(false)
-              return
-            }
-            if (text) {
-              setMessages(prev => {
-                const u = [...prev]
-                u[u.length - 1] = { ...u[u.length - 1], content: u[u.length - 1].content + text }
-                return u
-              })
-            }
+            if (error) { setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: `Error: ${error}` }; return u }); setStreaming(false); return }
+            if (text) setMessages(prev => { const u = [...prev]; u[u.length - 1] = { ...u[u.length - 1], content: u[u.length - 1].content + text }; return u })
           } catch {}
         }
       }
     } catch {
-      setMessages(prev => {
-        const u = [...prev]
-        u[u.length - 1] = { role: 'assistant', content: 'Connection error. Please try again.' }
-        return u
-      })
+      setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: 'Connection error. Please try again.' }; return u })
     } finally {
       setStreaming(false)
     }
   }
 
-  function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
-  }
-
   const gaps = context.gaps ?? []
   const strength = context.profileStrength
+  const showSuggestions = messages.length <= 1
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 130px)' }}>
-      {/* Context bar */}
-      <div
-        className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl px-5 py-3"
-        style={{ background: 'var(--secondary-bg)', border: '0.5px solid var(--card-border-color)' }}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>AI Advisor</span>
-          <span
-            className="rounded-full px-2 py-0.5 text-xs font-medium"
-            style={{ background: 'var(--urgency-green-bg)', color: 'var(--urgency-green-text)' }}
+    <div className="flex flex-col animate-fade-in" style={{ height: 'calc(100vh - 120px)' }}>
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg"
+            style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%)', boxShadow: '0 0 16px var(--accent-border)' }}
           >
-            {contextLoaded ? 'Context loaded' : 'Loading context…'}
-          </span>
-          {kbBacked && (
-            <span
-              className="rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{ background: '#E8F0FB', color: 'var(--criterion-blue)' }}
-              title="Answer enriched with AAO decisions and USCIS precedent"
-            >
-              Knowledge-backed
-            </span>
+            <Sparkles size={16} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>AI Advisor</h1>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full" style={{ background: contextLoaded ? 'var(--green)' : 'var(--amber)' }} />
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {contextLoaded ? 'Case context loaded' : 'Loading context…'}
+              </span>
+              {kbBacked && (
+                <>
+                  <span style={{ color: 'var(--border)' }}>·</span>
+                  <BookOpen size={10} style={{ color: 'var(--c-scholarly)' }} />
+                  <span className="text-xs" style={{ color: 'var(--c-scholarly)' }}>USCIS precedent</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Context pills */}
+        <div className="hidden sm:flex items-center gap-2">
+          {strength != null && (
+            <span className="badge badge-indigo">Strength {strength}%</span>
+          )}
+          {gaps.length > 0 && (
+            <span className="badge badge-red">{gaps.length} gaps</span>
+          )}
+          {context.domain && (
+            <span className="badge badge-muted">{context.role}</span>
           )}
         </div>
-        {strength != null && (
-          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Profile strength: <strong style={{ color: 'var(--text-primary)' }}>{strength}%</strong>
-          </span>
-        )}
-        {gaps.length > 0 && (
-          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Gaps:{' '}
-            <span style={{ color: 'var(--criterion-red)' }}>{gaps.join(', ')}</span>
-          </span>
-        )}
-        {context.domain && (
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {context.role} · {context.domain}
-          </span>
-        )}
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-5 pb-4">
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4">
         {messages.map((msg, i) => (
-          <div key={i} className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+          <div key={i} className={`flex items-start gap-3 animate-fade-in ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            {/* Avatar */}
             <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold"
               style={
                 msg.role === 'user'
-                  ? { background: 'var(--secondary-bg)', color: 'var(--text-primary)', border: '0.5px solid var(--card-border-color)' }
-                  : { background: '#111827', color: '#fff' }
+                  ? { background: 'var(--bg-overlay)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }
+                  : { background: 'var(--accent)', color: 'white' }
               }
             >
-              {msg.role === 'user' ? 'You' : 'AI'}
+              {msg.role === 'user' ? <User size={13} /> : <Bot size={13} />}
             </div>
+
+            {/* Bubble */}
             <div
               className="max-w-2xl rounded-2xl px-4 py-3 text-sm leading-relaxed"
               style={
                 msg.role === 'user'
-                  ? { background: '#111827', color: '#fff' }
+                  ? { background: 'var(--accent)', color: 'white' }
                   : {
-                      background: 'var(--card-bg)',
+                      background: 'var(--bg-surface)',
                       color: 'var(--text-primary)',
-                      border: '0.5px solid var(--card-border-color)',
+                      border: '1px solid var(--border)',
                       whiteSpace: 'pre-wrap',
                     }
               }
             >
               {msg.content || (streaming && i === messages.length - 1 ? (
-                <span className="inline-flex gap-1">
-                  <span className="animate-bounce" style={{ animationDelay: '0ms' }}>·</span>
-                  <span className="animate-bounce" style={{ animationDelay: '150ms' }}>·</span>
-                  <span className="animate-bounce" style={{ animationDelay: '300ms' }}>·</span>
+                <span className="flex items-center gap-1">
+                  <Loader2 size={12} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Thinking…</span>
                 </span>
               ) : '')}
             </div>
           </div>
         ))}
+
+        {/* Suggestions */}
+        {showSuggestions && (
+          <div className="pt-2 space-y-2">
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Suggested questions</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {SUGGESTIONS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  className="card-interactive rounded-xl px-4 py-3 text-left text-xs transition-colors"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div
-        className="rounded-2xl p-4"
-        style={{ background: 'var(--card-bg)', border: '0.5px solid var(--card-border-color)' }}
-      >
+      <div className="card p-4">
         <div className="flex gap-3">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
             disabled={streaming}
-            placeholder="Ask about your EB-1A strategy… (Enter to send · Shift+Enter for newline)"
-            rows={3}
+            placeholder="Ask about your EB-1A strategy… (Enter to send)"
+            rows={2}
             className="flex-1 resize-none rounded-xl px-4 py-3 text-sm focus:outline-none disabled:opacity-50"
             style={{
-              background: 'var(--secondary-bg)',
+              background: 'var(--bg-raised)',
               color: 'var(--text-primary)',
-              border: '0.5px solid var(--card-border-color)',
+              border: '1px solid var(--border)',
             }}
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim() || streaming}
-            className="self-end rounded-xl px-6 py-3 text-sm font-semibold transition-opacity disabled:opacity-40"
-            style={{ background: '#111827', color: '#fff' }}
+            className="btn-primary self-end px-4 py-3"
           >
-            {streaming ? '…' : 'Send'}
+            {streaming ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           </button>
         </div>
-        <p className="mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-          Your profile context — scores, gaps, and outcomes — is included automatically. Relevant AAO decisions and USCIS precedent are injected when available.
+        <p className="mt-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          Your case context is included automatically. USCIS precedent from AAO decisions injected when relevant.
         </p>
       </div>
     </div>

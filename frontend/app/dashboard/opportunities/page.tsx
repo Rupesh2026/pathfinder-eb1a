@@ -2,22 +2,42 @@ import { createClient } from '@/lib/supabase/server'
 import OpportunityCard from '@/components/OpportunityCard'
 import ScanButton from '../components/ScanButton'
 import { CRITERION_LABELS, type CriterionType, type OpportunityType } from '@/lib/types'
-import { VISIBILITY_OR_FILTER, MODE_BADGES, type OpportunityMode } from '@/lib/opportunity-visibility'
+import { VISIBILITY_OR_FILTER } from '@/lib/opportunity-visibility'
+import { Compass, Info } from 'lucide-react'
 
 const TYPE_LABELS: Record<OpportunityType, string> = {
   cfp: 'CFP', judging: 'Judging', speaking: 'Speaking',
   award: 'Award', podcast: 'Podcast', grant: 'Grant', peer_review: 'Peer Review',
 }
 
-const MODE_FILTER_OPTIONS: { key: string; label: string; badge: string }[] = [
-  { key: '', label: 'All formats', badge: '' },
-  { key: 'online',    label: 'Online',    badge: MODE_BADGES.online.classes },
-  { key: 'in_person', label: 'In person', badge: MODE_BADGES.in_person.classes },
-  { key: 'hybrid',    label: 'Hybrid',    badge: MODE_BADGES.hybrid.classes },
-]
-
 type Props = {
   searchParams: Promise<{ criterion?: string; type?: string; show?: string; mode?: string }>
+}
+
+type FilterPillProps = {
+  href: string
+  label: string
+  active: boolean
+  dot?: string
+}
+
+function FilterPill({ href, label, active, dot }: FilterPillProps) {
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+      style={{
+        background: active ? 'var(--accent-subtle)' : 'var(--bg-raised)',
+        color: active ? 'var(--accent-hover)' : 'var(--text-muted)',
+        border: `1px solid ${active ? 'var(--accent-border)' : 'var(--border)'}`,
+      }}
+    >
+      {dot && (
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
+      )}
+      {label}
+    </a>
+  )
 }
 
 export default async function OpportunitiesPage({ searchParams }: Props) {
@@ -30,7 +50,7 @@ export default async function OpportunitiesPage({ searchParams }: Props) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('focused_criteria')
+    .select('focused_criteria, scan_status, scan_completed_at')
     .eq('user_id', user!.id)
     .single()
 
@@ -41,7 +61,6 @@ export default async function OpportunitiesPage({ searchParams }: Props) {
     .select('*')
     .eq('user_id', user!.id)
     .eq('dismissed', false)
-    // Worldwide visibility: US shown online+offline, non-US online/hybrid only.
     .or(VISIBILITY_OR_FILTER)
     .order('priority_score', { ascending: false })
 
@@ -56,125 +75,144 @@ export default async function OpportunitiesPage({ searchParams }: Props) {
   const criterionKeys = (focusedCriteria.length > 0
     ? Object.keys(CRITERION_LABELS).filter(c => focusedCriteria.includes(c))
     : Object.keys(CRITERION_LABELS)) as CriterionType[]
+
   const typeKeys = Object.keys(TYPE_LABELS) as OpportunityType[]
+  const count = opportunities?.length ?? 0
+
+  const modeOptions = [
+    { key: '', label: 'All formats' },
+    { key: 'online',    label: 'Online' },
+    { key: 'in_person', label: 'In-person' },
+    { key: 'hybrid',    label: 'Hybrid' },
+  ]
+
+  function buildHref(overrides: Record<string, string | undefined>) {
+    const p = { criterion: params.criterion, type: params.type, show: params.show, mode: modeFilter, ...overrides }
+    const qs = Object.entries(p).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join('&')
+    return `/dashboard/opportunities${qs ? '?' + qs : ''}`
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">
-            Opportunities
-            {opportunities && (
-              <span className="ml-2 text-sm font-normal text-gray-400">
-                ({opportunities.length})
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg"
+            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)' }}
+          >
+            <Compass size={16} style={{ color: 'var(--accent)' }} />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              Opportunities
+              <span className="ml-2 text-base font-normal" style={{ color: 'var(--text-muted)' }}>
+                {count > 0 && `(${count})`}
               </span>
+            </h1>
+            {focusedCriteria.length > 0 && !params.criterion && (
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Filtered to {focusedCriteria.length} focused criteria ·{' '}
+                <a href="/dashboard/profile" style={{ color: 'var(--accent)' }}>change</a>
+              </p>
             )}
-          </h2>
-          {focusedCriteria.length > 0 && !params.criterion && (
-            <p className="mt-0.5 text-xs text-gray-400">
-              Filtered to {focusedCriteria.length} focused criteria ·{' '}
-              <a href="/dashboard/profile" className="underline hover:text-gray-600">change focus</a>
-            </p>
-          )}
+          </div>
         </div>
         <ScanButton
+          initialStatus={profile?.scan_status}
+          initialFinishedAt={profile?.scan_completed_at}
           redirectTo="/dashboard/opportunities"
-          subtitle="for opportunities"
         />
       </div>
 
-      {/* Visibility note */}
-      <div className="flex items-start gap-2 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-500">
-        <span className="mt-0.5 shrink-0">ℹ️</span>
-        <span>
-          <span className="font-medium text-gray-700">How opportunities are filtered: </span>
-          US opportunities show in all formats (online and in-person). Non-US opportunities show only
-          when they can be attended <span className="font-medium text-emerald-700">online</span> or{' '}
-          <span className="font-medium text-violet-700">hybrid</span> — non-US in-person events are
-          hidden since they require travel that may not be safe during a visa/petition process.
+      {/* Info banner */}
+      <div
+        className="flex items-start gap-3 rounded-xl px-4 py-3 text-xs"
+        style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)' }}
+      >
+        <Info size={13} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+        <span style={{ color: 'var(--text-muted)' }}>
+          US opportunities show in all formats. Non-US shows only{' '}
+          <span className="font-medium" style={{ color: 'var(--c-judging)' }}>online</span> &amp;{' '}
+          <span className="font-medium" style={{ color: 'var(--c-memberships)' }}>hybrid</span>{' '}
+          — in-person non-US events are hidden (require travel during visa process).
         </span>
       </div>
 
-      {/* Mode filter */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-gray-500">Format:</span>
-        {MODE_FILTER_OPTIONS.map(opt => {
-          const isActive = modeFilter === opt.key
-          const href = opt.key
-            ? `/dashboard/opportunities?mode=${opt.key}${params.criterion ? `&criterion=${params.criterion}` : ''}${params.type ? `&type=${params.type}` : ''}`
-            : `/dashboard/opportunities${params.criterion ? `?criterion=${params.criterion}` : ''}${params.type ? `${params.criterion ? '&' : '?'}type=${params.type}` : ''}`
-          return (
-            <a
+      {/* Filter bar */}
+      <div className="space-y-3">
+        {/* Mode */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="section-header">Format</span>
+          {modeOptions.map(opt => (
+            <FilterPill
               key={opt.key}
-              href={href}
-              className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                isActive
-                  ? opt.badge || 'bg-gray-900 text-white border-gray-900'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'
-              }`}
-            >
-              {opt.label}
-            </a>
-          )
-        })}
-      </div>
+              href={buildHref({ mode: opt.key || undefined })}
+              label={opt.label}
+              active={modeFilter === opt.key}
+            />
+          ))}
+        </div>
 
-      {/* Criterion / type / applied filters */}
-      <div className="flex flex-wrap gap-3 text-sm">
-        <a
-          href="/dashboard/opportunities"
-          className={`rounded-full px-3 py-1 border ${!params.criterion && !params.type && !showApplied && !modeFilter ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
-        >
-          All
-        </a>
-        {criterionKeys.map((c) => (
-          <a
-            key={c}
-            href={`/dashboard/opportunities?criterion=${c}${modeFilter ? `&mode=${modeFilter}` : ''}`}
-            className={`rounded-full px-3 py-1 border ${params.criterion === c ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
-          >
-            {CRITERION_LABELS[c]}
-          </a>
-        ))}
-        <div className="h-6 w-px bg-gray-200 self-center" />
-        {typeKeys.map((t) => (
-          <a
-            key={t}
-            href={`/dashboard/opportunities?type=${t}${modeFilter ? `&mode=${modeFilter}` : ''}`}
-            className={`rounded-full px-3 py-1 border ${params.type === t ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
-          >
-            {TYPE_LABELS[t]}
-          </a>
-        ))}
-        <div className="h-6 w-px bg-gray-200 self-center" />
-        <a
-          href="/dashboard/opportunities?show=applied"
-          className={`rounded-full px-3 py-1 border ${showApplied ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
-        >
-          Applied
-        </a>
+        {/* Criteria */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="section-header">Criteria</span>
+          <FilterPill href={buildHref({ criterion: undefined, type: undefined, show: undefined })} label="All" active={!params.criterion && !params.type && !showApplied} />
+          {criterionKeys.map(c => (
+            <FilterPill
+              key={c}
+              href={buildHref({ criterion: c })}
+              label={CRITERION_LABELS[c]}
+              active={params.criterion === c}
+            />
+          ))}
+        </div>
+
+        {/* Types + Applied */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="section-header">Type</span>
+          {typeKeys.map(t => (
+            <FilterPill
+              key={t}
+              href={buildHref({ type: t })}
+              label={TYPE_LABELS[t]}
+              active={params.type === t}
+            />
+          ))}
+          <div className="h-4 w-px mx-1" style={{ background: 'var(--border)' }} />
+          <FilterPill
+            href={buildHref({ show: 'applied' })}
+            label="Applied"
+            active={showApplied}
+            dot="var(--green)"
+          />
+        </div>
       </div>
 
       {/* List */}
       {opportunities && opportunities.length > 0 ? (
         <div className="space-y-3">
-          {opportunities.map((opp) => (
+          {opportunities.map(opp => (
             <OpportunityCard key={opp.id} opportunity={opp} />
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center space-y-4">
-          <div>
-            <p className="text-sm text-gray-500">No opportunities found.</p>
-            <p className="mt-1 text-xs text-gray-400">
-              Run a scan to discover opportunities for your criteria.
-            </p>
+        <div
+          className="flex flex-col items-center justify-center rounded-2xl py-16 text-center"
+          style={{ border: '1px dashed var(--border)', background: 'var(--bg-surface)' }}
+        >
+          <div
+            className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+            style={{ background: 'var(--bg-raised)' }}
+          >
+            <Compass size={24} style={{ color: 'var(--text-muted)' }} />
           </div>
-          <div className="flex justify-center">
-            <ScanButton
-              redirectTo="/dashboard/opportunities"
-              subtitle="for opportunities"
-            />
+          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No opportunities yet</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+            Run a scan to discover opportunities matching your criteria gaps
+          </p>
+          <div className="mt-5">
+            <ScanButton redirectTo="/dashboard/opportunities" />
           </div>
         </div>
       )}

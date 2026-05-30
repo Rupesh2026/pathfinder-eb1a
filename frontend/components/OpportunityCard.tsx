@@ -5,30 +5,42 @@ import { dismissOpportunity, markApplied } from '@/app/actions/opportunities'
 import type { Opportunity } from '@/lib/types'
 import { CRITERION_LABELS } from '@/lib/types'
 import { getModeBadge, countryLabel } from '@/lib/opportunity-visibility'
+import { ExternalLink, Globe, MapPin, CheckCircle, X, Star } from 'lucide-react'
 
-type Props = {
-  opportunity: Opportunity
-}
+type Props = { opportunity: Opportunity }
 
 const TYPE_LABELS: Record<string, string> = {
   cfp: 'CFP', judging: 'Judging', speaking: 'Speaking',
   award: 'Award', podcast: 'Podcast', grant: 'Grant', peer_review: 'Peer Review',
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  cfp: 'bg-blue-100 text-blue-700',
-  judging: 'bg-purple-100 text-purple-700',
-  speaking: 'bg-green-100 text-green-700',
-  award: 'bg-yellow-100 text-yellow-700',
-  podcast: 'bg-pink-100 text-pink-700',
-  grant: 'bg-orange-100 text-orange-700',
-  peer_review: 'bg-indigo-100 text-indigo-700',
+const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
+  cfp:        { bg: 'rgba(59,130,246,0.12)',  color: 'var(--c-scholarly)' },
+  judging:    { bg: 'rgba(52,211,153,0.12)',  color: 'var(--c-judging)' },
+  speaking:   { bg: 'rgba(251,146,60,0.12)',  color: 'var(--c-critical_role)' },
+  award:      { bg: 'rgba(245,158,11,0.12)',  color: 'var(--c-awards)' },
+  podcast:    { bg: 'rgba(167,139,250,0.12)', color: 'var(--c-memberships)' },
+  grant:      { bg: 'rgba(34,211,238,0.12)',  color: 'var(--c-press)' },
+  peer_review:{ bg: 'rgba(129,140,248,0.12)', color: 'var(--c-contributions)' },
+}
+
+const CRITERION_COLORS: Record<string, string> = {
+  judging: 'var(--c-judging)',
+  awards: 'var(--c-awards)',
+  press: 'var(--c-press)',
+  memberships: 'var(--c-memberships)',
+  original_contributions: 'var(--c-contributions)',
+  scholarly_articles: 'var(--c-scholarly)',
+  critical_role: 'var(--c-critical_role)',
+  high_salary: 'var(--c-high_salary)',
 }
 
 export default function OpportunityCard({ opportunity: opp }: Props) {
   const [isPending, startTransition] = useTransition()
   const modeBadge = getModeBadge(opp.delivery_mode)
   const place = countryLabel(opp)
+  const typeStyle = TYPE_COLORS[opp.type] ?? { bg: 'var(--bg-overlay)', color: 'var(--text-muted)' }
+  const criterionColor = opp.criterion ? (CRITERION_COLORS[opp.criterion] ?? 'var(--accent)') : null
 
   function handleDismiss() {
     startTransition(async () => { await dismissOpportunity(opp.id) })
@@ -38,72 +50,133 @@ export default function OpportunityCard({ opportunity: opp }: Props) {
     startTransition(async () => { await markApplied(opp.id) })
   }
 
-  if (opp.dismissed || opp.applied) return null
+  if (opp.dismissed) return null
+
+  const score = opp.priority_score != null ? Math.round(opp.priority_score) : null
 
   return (
-    <div className={`rounded-lg border border-gray-200 bg-white p-5 transition-opacity ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 space-y-2">
-
-          {/* Tag row: type · criterion · mode badge · score */}
+    <div
+      className="card-interactive p-5 transition-opacity"
+      style={{ opacity: isPending ? 0.5 : 1, pointerEvents: isPending ? 'none' : 'auto' }}
+    >
+      <div className="flex items-start gap-4">
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Badges row */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[opp.type] ?? 'bg-gray-100 text-gray-600'}`}>
+            {/* Type */}
+            <span
+              className="badge"
+              style={{ background: typeStyle.bg, color: typeStyle.color, border: `1px solid ${typeStyle.color}30` }}
+            >
               {TYPE_LABELS[opp.type] ?? opp.type}
             </span>
+
+            {/* Criterion */}
             {opp.criterion && (
-              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">
+              <span
+                className="badge"
+                style={{
+                  background: `${criterionColor}15`,
+                  color: criterionColor ?? 'var(--text-muted)',
+                  border: `1px solid ${criterionColor}30`,
+                }}
+              >
                 {CRITERION_LABELS[opp.criterion] ?? opp.criterion}
               </span>
             )}
-            {/* Mode badge — green=online, amber=in-person, purple=hybrid */}
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${modeBadge.classes}`}>
+
+            {/* Mode */}
+            <span
+              className="badge"
+              style={{
+                background: opp.delivery_mode === 'online' ? 'var(--green-subtle)'
+                  : opp.delivery_mode === 'hybrid' ? 'rgba(167,139,250,0.12)'
+                  : 'var(--amber-subtle)',
+                color: opp.delivery_mode === 'online' ? 'var(--green)'
+                  : opp.delivery_mode === 'hybrid' ? 'var(--c-memberships)'
+                  : 'var(--amber)',
+                border: `1px solid ${opp.delivery_mode === 'online' ? 'var(--green-border)'
+                  : opp.delivery_mode === 'hybrid' ? 'rgba(167,139,250,0.3)'
+                  : 'var(--amber-border)'}`,
+              }}
+            >
               {modeBadge.label}
             </span>
-            {opp.priority_score != null && (
-              <span className="ml-auto text-xs font-semibold text-indigo-600">
-                Score: {Math.round(opp.priority_score)}
+
+            {/* Applied badge */}
+            {opp.applied && (
+              <span className="badge badge-green">
+                <CheckCircle size={9} /> Applied
+              </span>
+            )}
+
+            {/* Priority score */}
+            {score != null && score > 0 && (
+              <span
+                className="ml-auto flex items-center gap-1 text-[11px] font-bold tabular-nums"
+                style={{ color: score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--text-muted)' }}
+              >
+                <Star size={9} />
+                {score}
               </span>
             )}
           </div>
 
-          <h3 className="font-semibold text-gray-900">{opp.title}</h3>
+          {/* Title */}
+          <h3 className="text-sm font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
+            {opp.title}
+          </h3>
 
+          {/* Description */}
           {opp.description && (
-            <p className="text-sm text-gray-500">{opp.description}</p>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              {opp.description}
+            </p>
           )}
 
-          {/* Location + deadline + link row */}
-          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
             <span className="flex items-center gap-1">
-              <span>{opp.is_us ? '📍' : '🌐'}</span>
-              <span className="text-gray-500">{place}</span>
+              {opp.is_us ? <MapPin size={11} /> : <Globe size={11} />}
+              {place}
             </span>
             {opp.deadline && (
-              <span>Deadline: {opp.deadline}</span>
+              <span>
+                Deadline: <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{opp.deadline}</span>
+              </span>
             )}
             {opp.url && (
-              <a href={opp.url} target="_blank" rel="noopener noreferrer"
-                className="text-indigo-500 hover:underline">
-                View →
+              <a
+                href={opp.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 transition-colors"
+                style={{ color: 'var(--accent)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent-hover)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
+              >
+                View <ExternalLink size={10} />
               </a>
             )}
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-col gap-2">
-          <button
-            onClick={handleApply}
-            className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
-          >
-            Mark applied
-          </button>
-          <button
-            onClick={handleDismiss}
-            className="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
-          >
-            Dismiss
-          </button>
-        </div>
+        {/* Actions */}
+        {!opp.applied && (
+          <div className="flex flex-shrink-0 flex-col gap-2">
+            <button onClick={handleApply} className="btn-primary text-xs px-3 py-1.5">
+              <CheckCircle size={12} />
+              Apply
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="btn-ghost justify-center text-xs px-3 py-1.5"
+            >
+              <X size={11} />
+              Skip
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,44 +1,52 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { CriterionData } from '../hooks/useDashboard'
+import { ChevronRight, AlertCircle, TrendingUp, Minus } from 'lucide-react'
 
-function getCriterionColor(score: number): string {
-  if (score >= 65) return 'var(--criterion-green)'
-  if (score >= 40) return 'var(--criterion-blue)'
-  if (score >= 20) return 'var(--criterion-amber)'
-  return 'var(--criterion-red)'
+const CRITERION_COLORS: Record<string, string> = {
+  judging: 'var(--c-judging)',
+  awards: 'var(--c-awards)',
+  press: 'var(--c-press)',
+  memberships: 'var(--c-memberships)',
+  original_contributions: 'var(--c-contributions)',
+  scholarly_articles: 'var(--c-scholarly)',
+  critical_role: 'var(--c-critical_role)',
+  high_salary: 'var(--c-high_salary)',
+  commercial_success: 'var(--c-commercial)',
+  artistic_exhibitions: 'var(--c-exhibitions)',
 }
 
-function TierBadge({ score }: { score: number }) {
-  const label = score >= 65 ? 'Strong' : score >= 40 ? 'Building' : score >= 20 ? 'Weak' : 'Gap'
-  const color = getCriterionColor(score)
-  const bg = score >= 65 ? '#E8F7F2' : score >= 40 ? '#E8F0FB' : score >= 20 ? '#FDF5E0' : '#FDEAEA'
-  return (
-    <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ color, background: bg }}>
-      {label}
-    </span>
-  )
+function scoreColor(score: number) {
+  if (score >= 65) return 'var(--green)'
+  if (score >= 40) return 'var(--amber)'
+  if (score > 0)  return 'var(--c-critical_role)'
+  return 'var(--red)'
 }
 
-type Props = {
-  criteria: CriterionData[]
-  loading: boolean
-  focused?: boolean
+function TierChip({ score }: { score: number }) {
+  if (score >= 65) return <span className="badge badge-green">Strong</span>
+  if (score >= 40) return <span className="badge badge-amber">Building</span>
+  if (score > 0)  return <span className="badge" style={{ background: 'var(--amber-subtle)', color: 'var(--amber)', border: '1px solid var(--amber-border)' }}>Weak</span>
+  return <span className="badge badge-red">Gap</span>
 }
+
+type Props = { criteria: CriterionData[]; loading: boolean; focused?: boolean }
 
 export default function CriteriaPanel({ criteria, loading, focused }: Props) {
-  const router = useRouter()
-
   if (loading) {
     return (
       <div className="card p-5">
-        <div className="mb-4 h-5 w-32 animate-pulse rounded" style={{ background: 'var(--card-border-color)' }} />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="mb-4 skeleton h-5 w-32" />
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="space-y-1.5">
-              <div className="h-3 w-40 animate-pulse rounded" style={{ background: 'var(--card-border-color)' }} />
-              <div className="h-2 w-full animate-pulse rounded-full" style={{ background: 'var(--card-border-color)' }} />
+            <div key={i} className="rounded-xl p-4 space-y-3" style={{ background: 'var(--bg-raised)' }}>
+              <div className="skeleton h-4 w-36" />
+              <div className="skeleton h-2 w-full" />
+              <div className="flex justify-between">
+                <div className="skeleton h-3 w-10" />
+                <div className="skeleton h-4 w-14" />
+              </div>
             </div>
           ))}
         </div>
@@ -46,59 +54,115 @@ export default function CriteriaPanel({ criteria, loading, focused }: Props) {
     )
   }
 
+  const strongCount = criteria.filter(c => c.score >= 65).length
+  const gapCount = criteria.filter(c => c.score < 40).length
+
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Evidence Strength</h2>
-          {focused && (
-            <p className="mt-0.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Showing {criteria.length} focused {criteria.length === 1 ? 'criterion' : 'criteria'}
-            </p>
-          )}
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Evidence Health</h2>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+            {focused ? `${criteria.length} focused criteria` : '10 EB-1A criteria'} ·{' '}
+            <span style={{ color: 'var(--green)' }}>{strongCount} strong</span>
+            {gapCount > 0 && <span>, <span style={{ color: 'var(--red)' }}>{gapCount} critical gaps</span></span>}
+          </p>
         </div>
-        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-          {criteria.filter(c => c.score >= 65).length} of {criteria.length} strong
-        </span>
+        <Link
+          href="/dashboard/evidence"
+          className="btn-ghost text-xs"
+        >
+          View all <ChevronRight size={12} />
+        </Link>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {criteria.map((c) => (
-          <button
-            key={c.criterion}
-            onClick={() => router.push(`/dashboard/evidence/${c.criterion}`)}
-            className="group rounded-lg p-3 text-left transition-colors hover:opacity-80"
-            style={{ background: 'var(--secondary-bg)', border: '0.5px solid var(--card-border-color)' }}
-          >
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold group-hover:underline" style={{ color: 'var(--text-primary)' }}>
-                {c.label}
-              </span>
-              <div className="flex shrink-0 items-center gap-2">
-                {c.evidence_count > 0 && (
-                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    {c.evidence_count} {c.evidence_count === 1 ? 'item' : 'items'}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {criteria.map((c) => {
+          const accentColor = CRITERION_COLORS[c.criterion] ?? 'var(--accent)'
+          const color = scoreColor(c.score)
+          const isCritical = c.score < 40
+
+          return (
+            <Link
+              key={c.criterion}
+              href={`/dashboard/evidence/${c.criterion}`}
+              className="group relative flex flex-col gap-3 rounded-xl p-4 transition-all"
+              style={{
+                background: 'var(--bg-raised)',
+                border: `1px solid ${isCritical ? 'var(--red-border)' : 'var(--border)'}`,
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.borderColor = isCritical ? 'var(--red)' : accentColor + '50'
+                el.style.background = 'var(--bg-overlay)'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.borderColor = isCritical ? 'var(--red-border)' : 'var(--border)'
+                el.style.background = 'var(--bg-raised)'
+              }}
+            >
+              {/* Critical gap accent bar */}
+              {isCritical && (
+                <div
+                  className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl"
+                  style={{ background: 'var(--red)' }}
+                />
+              )}
+
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {/* Criterion color dot */}
+                  <div
+                    className="h-2 w-2 rounded-full flex-shrink-0"
+                    style={{ background: accentColor }}
+                  />
+                  <span className="text-xs font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
+                    {c.label}
                   </span>
+                </div>
+                {isCritical ? (
+                  <AlertCircle size={13} style={{ color: 'var(--red)', flexShrink: 0 }} />
+                ) : c.score >= 65 ? (
+                  <TrendingUp size={13} style={{ color: 'var(--green)', flexShrink: 0 }} />
+                ) : (
+                  <Minus size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 )}
-                <TierBadge score={c.score} />
               </div>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--card-border-color)' }}>
-              <div
-                className="h-1.5 rounded-full transition-all duration-500"
-                style={{ width: `${c.score}%`, background: getCriterionColor(c.score) }}
+
+              {/* Progress bar */}
+              <div>
+                <div className="progress-track">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${c.score}%`, background: color }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold tabular-nums" style={{ color }}>
+                  {c.score}/100
+                </span>
+                <div className="flex items-center gap-2">
+                  {c.evidence_count > 0 && (
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                      {c.evidence_count} items
+                    </span>
+                  )}
+                  <TierChip score={c.score} />
+                </div>
+              </div>
+
+              {/* Hover arrow */}
+              <ChevronRight
+                size={12}
+                className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ color: 'var(--text-muted)' }}
               />
-            </div>
-            <div className="mt-1.5 flex items-center justify-between">
-              <span className="text-xs font-semibold" style={{ color: getCriterionColor(c.score) }}>
-                {c.score}/100
-              </span>
-              <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-tertiary)' }}>
-                View history →
-              </span>
-            </div>
-          </button>
-        ))}
+            </Link>
+          )
+        })}
       </div>
     </div>
   )

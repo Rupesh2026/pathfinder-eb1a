@@ -162,7 +162,7 @@ export default function AdvisorChat({ criteria, summary, outcomes, domain, role 
               className="max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed"
               style={
                 msg.role === 'user'
-                  ? { background: '#111827', color: '#fff' }
+                  ? { background: 'var(--accent)', color: '#fff' }
                   : { background: 'var(--secondary-bg)', color: 'var(--text-primary)' }
               }
             >
@@ -201,7 +201,7 @@ export default function AdvisorChat({ criteria, summary, outcomes, domain, role 
             onClick={sendMessage}
             disabled={!input.trim() || streaming}
             className="self-end rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40"
-            style={{ background: '#111827', color: '#fff' }}
+            style={{ background: 'var(--accent)', color: '#fff' }}
           >
             Send
           </button>

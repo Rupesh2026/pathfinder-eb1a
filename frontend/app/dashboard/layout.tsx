@@ -1,14 +1,6 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { signOut } from '@/app/actions/auth'
-
-const NAV = [
-  { href: '/dashboard',               label: 'Command Center' },
-  { href: '/dashboard/opportunities', label: 'Opportunities' },
-  { href: '/dashboard/evidence',      label: 'Evidence' },
-  { href: '/dashboard/advisor',       label: 'AI Advisor' },
-  { href: '/dashboard/profile',       label: 'Profile' },
-]
+import SidebarNav from './components/SidebarNav'
+import SignOutButton from './components/SignOutButton'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -21,51 +13,51 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .single()
 
   const needsFocusSetup = !profile?.focused_criteria || (profile.focused_criteria as string[]).length === 0
+  const initials = (profile?.role ?? user?.email ?? 'U')
+    .split(' ')
+    .map((w: string) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--page-bg)' }}>
-      <header style={{ borderBottom: '0.5px solid var(--card-border-color)', background: 'var(--card-bg)' }}>
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <div>
-            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>EB-1A Agent</span>
-            {profile && (
-              <span className="ml-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                {profile.role} · {profile.domain}
-              </span>
-            )}
+    <div className="flex min-h-screen" style={{ background: 'var(--bg-page)' }}>
+      {/* ── Sidebar ──────────────────────────────────────── */}
+      <aside
+        className="fixed inset-y-0 left-0 z-30 flex w-[220px] flex-col"
+        style={{
+          background: 'var(--bg-surface)',
+          borderRight: '1px solid var(--border)',
+        }}
+      >
+        {/* Logo */}
+        <div className="flex h-14 items-center gap-3 px-4" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-white text-xs font-bold"
+            style={{ background: 'var(--accent)' }}
+          >
+            P
           </div>
-          <form action={signOut}>
-            <button type="submit" className="text-xs hover:underline" style={{ color: 'var(--text-secondary)' }}>
-              Sign out
-            </button>
-          </form>
+          <div>
+            <p className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>Pathfinder</p>
+            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>EB-1A Builder</p>
+          </div>
         </div>
 
-        <nav className="mx-auto max-w-7xl px-6">
-          <div className="flex gap-0.5" style={{ borderTop: '0.5px solid var(--divider)', paddingTop: '2px' }}>
-            {NAV.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className="inline-flex items-center gap-1 rounded-t px-4 py-2 text-xs font-medium transition-colors hover:opacity-80"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                {label}
-                {label === 'Profile' && needsFocusSetup && (
-                  <span
-                    className="inline-block h-1.5 w-1.5 rounded-full"
-                    style={{ background: 'var(--criterion-amber)' }}
-                    title="Set your criteria focus"
-                  />
-                )}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      </header>
+        {/* Navigation */}
+        <SidebarNav needsFocusSetup={needsFocusSetup} />
 
-      <main className="mx-auto max-w-7xl px-6 py-6">
-        {children}
+        {/* User footer */}
+        <div className="p-3" style={{ borderTop: '1px solid var(--border)' }}>
+          <SignOutButton initials={initials} label={profile?.role ?? user?.email ?? ''} />
+        </div>
+      </aside>
+
+      {/* ── Main ─────────────────────────────────────────── */}
+      <main className="ml-[220px] flex-1 min-w-0">
+        <div className="mx-auto max-w-6xl px-8 py-8">
+          {children}
+        </div>
       </main>
     </div>
   )
