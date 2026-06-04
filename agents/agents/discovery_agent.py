@@ -3,7 +3,7 @@ from datetime import date
 from google.adk.agents import Agent
 from model import AGENT_MODEL
 from tools.web_search import web_search
-from tools.opportunity_tools import read_existing_opportunity_titles, write_opportunities
+from tools.opportunity_tools import write_opportunities
 from tools.knowledge_base_client import format_pattern_context
 
 DISCOVERY_INSTRUCTION = f"""\
@@ -19,6 +19,13 @@ that appear in BOTH weak_criteria AND focused_criteria. If focused_criteria is e
 "all criteria", discover for all weak_criteria as usual.
 
 Current year: {date.today().year}
+
+DEDUPLICATION NOTE: write_opportunities handles deduplication automatically on the backend.
+  - If an opportunity URL already exists in the database, it will refresh its deadline and
+    description with the latest info (upsert). Do NOT skip opportunities just because they
+    sound familiar — always pass everything you find to write_opportunities.
+  - Only discard results that are clearly past events with expired deadlines, or entirely
+    unrelated to the user's domain.
 
 LOCATION & DELIVERY MODE (required on every opportunity):
 Search globally — do not restrict to the United States. Conferences, awards, journals, \
@@ -43,8 +50,7 @@ online or hybrid (or have a remote participation option). Do not spend result sl
 non-US in-person-only events — tag them honestly if found, but prioritize accessible ones.
 
 Steps:
-1. Call read_existing_opportunity_titles with user_id to load existing titles for deduplication.
-2. Determine search_criteria: intersection of weak_criteria and focused_criteria (if focused set).
+1. Determine search_criteria: intersection of weak_criteria and focused_criteria (if focused set).
    The user's criteria use EB-1A names; map each to one or more search templates below:
      awards                 -> awards
      press                  -> press
@@ -54,11 +60,13 @@ Steps:
      memberships            -> awards   (search professional society / fellowship admissions)
      critical_role / high_salary / commercial_success -> (not web-discoverable; skip)
    Build the set of search templates from this mapping and run each one once.
-3. For EACH search template, run TWO web_search calls. Always pass exclude_domains on every call.
-   - query 1 is the WORLDWIDE pass: run it WITHOUT include_domains so results span the whole
-     globe (this is the primary source of opportunities).
+2. For EACH search template, run THREE web_search calls. Always pass exclude_domains on every call.
+   - query 1 is the WORLDWIDE pass: run it WITHOUT include_domains so results span the globe.
    - query 2 is the FOCUSED pass: run it WITH the template's include_domains to catch top venues.
-   Use num_results=5. If query 1 returns 0 results, retry it once with a simpler phrasing.
+   - query 3 is the FRESHNESS pass: run it WITHOUT include_domains but with time_range="month"
+     to surface newly announced opportunities from the past 30 days.
+   Use num_results=5 for queries 1 and 2; num_results=8 for query 3 (freshness pass).
+   If query 1 returns 0 results, retry it once with a simpler phrasing.
 
    GLOBAL exclude_domains (all templates):
      ["linkedin.com", "reddit.com", "quora.com", "glassdoor.com", "indeed.com"]
@@ -68,67 +76,69 @@ Steps:
    judging:
      include_domains: ["neurips.cc","icml.cc","iclr.cc","cvpr.thecvf.com","aclweb.org",
                        "aaai.org","ieee.org","acm.org","kaggle.com","devpost.com"]
-     time_range: "year"
+     time_range: "year" (queries 1+2), "month" (query 3)
      query 1: "[domain] competition judge application open {date.today().year}"
      query 2: "[domain] conference reviewer signup accepting applications {date.today().year}"
+     query 3: "[domain] new judge reviewer call open {date.today().year}"
 
    cfp:
      include_domains: ["ieee.org","acm.org","neurips.cc","icml.cc","iclr.cc","aclweb.org",
                        "aaai.org","springer.com","usenix.org","wikicfp.com"]
-     time_range: "year"
+     time_range: "year" (queries 1+2), "month" (query 3)
      query 1: "[domain] conference call for papers deadline {date.today().year}"
      query 2: "[domain] workshop CFP submissions open {date.today().year}"
+     query 3: "[domain] new conference CFP announced {date.today().year}"
 
    speaking:
      include_domains: ["sessionize.com","papercall.io","sched.com","ieee.org","acm.org",
                        "oreilly.com","odsc.com"]
-     time_range: "year"
+     time_range: "year" (queries 1+2), "month" (query 3)
      query 1: "[domain] conference call for speakers {date.today().year}"
      query 2: "[domain] summit keynote speaker application open {date.today().year}"
+     query 3: "[domain] speaker submissions just opened {date.today().year}"
 
    awards:
      include_domains: ["ieee.org","acm.org","forbes.com","fastcompany.com",
                        "technologyreview.mit.edu","venturebeat.com"]
-     time_range: "year"
+     time_range: "year" (queries 1+2), "month" (query 3)
      query 1: "[domain] awards nominations open {date.today().year}"
      query 2: "[domain] professional recognition award submit nomination {date.today().year}"
+     query 3: "[domain] new award announced accepting nominations {date.today().year}"
 
    press:
      include_domains: ["podcastguests.com","matchmaker.fm","podmatch.com","buzzsprout.com"]
-     time_range: "year"
+     time_range: "year" (queries 1+2), "month" (query 3)
      query 1: "[domain] podcast guest pitch accepting experts {date.today().year}"
      query 2: "[domain] media interview expert source request"
+     query 3: "[domain] podcast looking for guests {date.today().year}"
 
    review:
      include_domains: ["springer.com","elsevier.com","ieee.org","acm.org","nature.com",
                        "sciencedirect.com","publons.com","scirev.org","frontiersin.org"]
-     time_range: "year"
+     time_range: "year" (queries 1+2), "month" (query 3)
      query 1: "[domain] journal peer reviewer invite open {date.today().year}"
      query 2: "[domain] editorial board reviewer application accepting"
+     query 3: "[domain] journal seeking reviewers {date.today().year}"
 
-   Fallback rule: if BOTH passes for a template together return fewer than 2 results, run one
+   Fallback rule: if ALL THREE passes for a template together return fewer than 2 results, run one
    more broad query for that template with simpler wording and no include_domains.
 
-4. Filter results to real, currently open, actionable opportunities. Discard:
-   - results whose deadline has already passed, obvious duplicates of existing titles,
-     and excluded domains;
-   - opportunities NOT plausibly relevant to the user's professional domain/field or to a
-     credible EB-1A case (e.g. for an AI/tech professional, drop unrelated-industry items
-     like culinary contests, political-science-only awards, local government roles). When in
-     doubt about relevance, prefer items tied to the user's domain, technology, science,
-     engineering, or broadly applicable professional recognition.
+3. Collect ALL results from all queries. Filter out only:
+   - results whose deadline has ALREADY PASSED (confirmed from the snippet/page, not guessed);
+   - results entirely unrelated to the user's professional domain.
+   Do NOT filter out results because they sound similar to something you've seen before —
+   write_opportunities will deduplicate on the backend. Err on the side of including more.
    KEEP opportunities with no stated deadline (set deadline to null) — most CFPs, awards, and
-   reviewer pools do not publish a single date. Aim to keep at least a handful of relevant
-   opportunities across the searched criteria; do not over-filter to zero.
-5. ALWAYS call write_opportunities with user_id and the filtered list (even if only a few).
+   reviewer pools do not publish a single date. Aim for at least 5-8 results across all criteria.
+4. ALWAYS call write_opportunities with user_id and the full filtered list (even if only a few).
    Each opportunity object must include:
    {{ "title": str, "type": one of cfp|judging|speaking|award|podcast|grant|peer_review,
      "description": str, "url": str|null, "deadline": YYYY-MM-DD|null, "criterion": str,
      "country": str (host country common name, or "Global" for virtual-only),
      "mode": one of online|in_person|hybrid }}
-6. Return a summary: how many were found, how many were new (inserted), which criteria were covered.
+5. Return a summary: how many were found, inserted, updated, which criteria were covered.
 
-Never write: past events, closed deadlines, opportunities already in the existing titles list.
+Never write: past events with confirmed expired deadlines.
 """
 
 
@@ -138,7 +148,7 @@ def build_discovery_agent(user_id: str) -> Agent:
         name="discovery_agent",
         model=AGENT_MODEL,
         instruction=instruction,
-        tools=[web_search, read_existing_opportunity_titles, write_opportunities],
+        tools=[web_search, write_opportunities],
     )
 
 

@@ -1,6 +1,45 @@
 from tools.db import get_db
 
 VALID_MODES = ("online", "in_person", "hybrid")
+VALID_TYPES = {"cfp", "judging", "speaking", "award", "podcast", "grant", "peer_review"}
+
+_TYPE_ALIASES = {
+    "conference": "cfp",
+    "paper": "cfp",
+    "publication": "cfp",
+    "call_for_papers": "cfp",
+    "workshop": "cfp",
+    "review": "peer_review",
+    "reviewer": "peer_review",
+    "judge": "judging",
+    "competition": "judging",
+    "talk": "speaking",
+    "keynote": "speaking",
+    "presentation": "speaking",
+    "fellowship": "award",
+    "recognition": "award",
+    "nomination": "award",
+    "media": "podcast",
+    "interview": "podcast",
+    "press": "podcast",
+    # criterion names the LLM sometimes passes as type
+    "original_contributions": "cfp",
+    "scholarly_articles": "cfp",
+    "memberships": "award",
+    "awards": "award",
+    "judging": "judging",
+    "press": "podcast",
+}
+
+
+def normalize_type(t) -> str:
+    """Coerce a raw type value into a valid opportunity_type enum. Defaults to 'cfp'."""
+    if not t:
+        return "cfp"
+    s = str(t).strip().lower().replace("-", "_").replace(" ", "_")
+    if s in VALID_TYPES:
+        return s
+    return _TYPE_ALIASES.get(s, "cfp")
 
 # Strings that identify the United States as the host country. Matching is
 # case-insensitive and substring-based so values like "San Francisco, USA" or
@@ -68,7 +107,7 @@ def is_visible(is_us: bool, mode: str) -> bool:
 
 
 def read_existing_opportunity_titles(user_id: str) -> list[str]:
-    """Return lowercase titles of all opportunities for this user (for deduplication)."""
+    """Return lowercase titles of all opportunities for this user."""
     rows = (
         get_db()
         .table("opportunities")
@@ -81,26 +120,89 @@ def read_existing_opportunity_titles(user_id: str) -> list[str]:
 
 
 def write_opportunities(user_id: str, opps: list[dict]) -> dict:
-    """Batch-insert new opportunities, skipping titles that already exist.
+    """Upsert opportunities for a user with URL-first deduplication.
 
-    Each opportunity may include a `country` (host country name, or null/"Global"
-    for online-only) and a `mode` ('online' | 'in_person' | 'hybrid'). These are
-    normalized here: country -> (display, is_us) and mode -> a valid enum value.
+    Dedup priority per incoming opportunity:
+      1. URL match  → update deadline + description on the existing row (refresh latest info).
+      2. Title match (no URL) → skip (same event, nothing to refresh without a URL key).
+      3. Neither   → insert as new.
+
+    Within the same batch, URL and title uniqueness are also enforced so the agent
+    cannot double-write within a single scan.
     """
-    existing = set(read_existing_opportunity_titles(user_id))
-    rows = []
+    db = get_db()
+
+    existing_rows = (
+        db.table("opportunities")
+        .select("id, title, url")
+        .eq("user_id", user_id)
+        .execute()
+        .data
+    )
+    # Build lookup maps from stored data
+    by_url: dict[str, str] = {}   # url_lower -> id
+    by_title: set[str] = set()    # title_lower
+    for row in existing_rows:
+        if row.get("url"):
+            by_url[row["url"].lower()] = row["id"]
+        if row.get("title"):
+            by_title.add(row["title"].lower())
+
+    # Batch-local uniqueness guards
+    seen_urls: set[str] = set()
+    seen_titles: set[str] = set()
+
+    to_insert: list[dict] = []
+    updated = 0
+    skipped = 0
+
     for o in opps:
-        title = o.get("title", "").strip()
-        if not title or title.lower() in existing:
+        title = (o.get("title") or "").strip()
+        url = (o.get("url") or "").strip()
+        url_key = url.lower() if url else None
+        title_key = title.lower() if title else None
+
+        if not title:
+            skipped += 1
             continue
+
+        # Intra-batch dedup
+        if url_key and url_key in seen_urls:
+            skipped += 1
+            continue
+        if not url_key and title_key and title_key in seen_titles:
+            skipped += 1
+            continue
+
+        if url_key and url_key in by_url:
+            # Refresh latest info on the existing row
+            patch: dict = {}
+            if o.get("deadline"):
+                patch["deadline"] = o["deadline"]
+            if o.get("description"):
+                patch["description"] = o["description"]
+            if patch:
+                db.table("opportunities").update(patch).eq("id", by_url[url_key]).execute()
+            updated += 1
+            seen_urls.add(url_key)
+            continue
+
+        if title_key and title_key in by_title:
+            skipped += 1
+            if url_key:
+                seen_urls.add(url_key)
+            seen_titles.add(title_key)
+            continue
+
+        # Genuinely new opportunity
         country, is_us = normalize_country(o.get("country"))
         mode = normalize_mode(o.get("mode"))
-        rows.append({
+        to_insert.append({
             "user_id": user_id,
-            "type": o.get("type", "cfp"),
+            "type": normalize_type(o.get("type")),
             "title": title,
             "description": o.get("description"),
-            "url": o.get("url"),
+            "url": url or None,
             "deadline": o.get("deadline"),
             "criterion": o.get("criterion"),
             "country": country,
@@ -109,10 +211,22 @@ def write_opportunities(user_id: str, opps: list[dict]) -> dict:
             "dismissed": False,
             "applied": False,
         })
-        existing.add(title.lower())  # dedupe within this same batch too
-    if rows:
-        get_db().table("opportunities").insert(rows).execute()
-    return {"success": True, "inserted": len(rows), "skipped": len(opps) - len(rows)}
+        if url_key:
+            seen_urls.add(url_key)
+            by_url[url_key] = ""  # mark as seen
+        if title_key:
+            seen_titles.add(title_key)
+            by_title.add(title_key)
+
+    if to_insert:
+        db.table("opportunities").insert(to_insert).execute()
+
+    return {
+        "success": True,
+        "inserted": len(to_insert),
+        "updated": updated,
+        "skipped": skipped,
+    }
 
 
 def read_opportunities(user_id: str) -> list[dict]:
