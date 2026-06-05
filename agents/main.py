@@ -56,11 +56,12 @@ async def _run_single_agent(agent, user_id: str, message: str) -> str:
     return "".join(parts_text)
 
 
-def _parse_evidence(evidence_text: str, focused: list[str]) -> tuple[list[str], list[dict]]:
-    """Derive (weak_criteria, scores) from the evidence agent's JSON output.
+def _parse_evidence(evidence_text: str, focused: list[str]) -> tuple[list[str], list[dict], list[str]]:
+    """Derive (weak_criteria, scores, critical_gaps) from the evidence agent's JSON output.
 
     weak_criteria = every criterion not rated 'strong' (score < 65). Falls back to the
     user's focused criteria (or all criteria) so discovery always has targets to search.
+    critical_gaps = criteria with score < 40 (highest priority for coach planning).
     """
     try:
         raw = evidence_text.strip()
@@ -71,11 +72,52 @@ def _parse_evidence(evidence_text: str, focused: list[str]) -> tuple[list[str], 
         strong = set(data.get("strong", []))
         weak = [c for c in _ALL_CRITERIA if c not in strong]
         scores = data.get("scores", [])
+        critical_gaps = data.get("critical_gaps", [])
         if weak:
-            return weak, scores
+            return weak, scores, critical_gaps
     except Exception as exc:
         log.warning(f"Evidence parse failed, falling back to focused/all criteria: {exc}")
-    return (focused or _ALL_CRITERIA), []
+    return (focused or _ALL_CRITERIA), [], []
+
+
+def _build_profile_context(profile: dict) -> str:
+    """Produce a compact, human-readable profile string for agent instructions.
+
+    Returns empty string when profile fields are absent so callers can guard with
+    `if profile_context:` and skip injection cleanly.
+    """
+    _SALARY_SENIORITY = {
+        "under_150k":  "early-career professional",
+        "150k_200k":   "mid-level professional",
+        "200k_300k":   "senior professional",
+        "300k_plus":   "highly experienced senior professional",
+    }
+    parts: list[str] = []
+    role = (profile.get("role") or "").strip()
+    if role:
+        parts.append(f"Role: {role}")
+    seniority = _SALARY_SENIORITY.get(profile.get("salary_band") or "", "")
+    if seniority:
+        parts.append(f"Seniority: {seniority}")
+    country = (profile.get("country_of_origin") or "").strip()
+    if country:
+        parts.append(f"Country of origin: {country}")
+    education = profile.get("education") or []
+    if isinstance(education, list) and education:
+        edu_strs = []
+        for e in education:
+            if not isinstance(e, dict):
+                continue
+            degree = e.get("degree", "")
+            field  = e.get("field", "")
+            inst   = e.get("institution", "")
+            if degree and field:
+                edu_strs.append(f"{degree} in {field}" + (f" ({inst})" if inst else ""))
+            elif degree:
+                edu_strs.append(degree + (f" ({inst})" if inst else ""))
+        if edu_strs:
+            parts.append(f"Education: {'; '.join(edu_strs)}")
+    return "\n".join(parts) if parts else ""
 
 
 def _verify_api_key(x_api_key: str) -> None:
@@ -100,7 +142,7 @@ async def run_daily_agents_for_user(user_id: str) -> None:
     db = get_db()
     profile = (
         db.table("profiles")
-        .select("domain, strategy_weights, focused_criteria")
+        .select("domain, role, salary_band, country_of_origin, education, strategy_weights, focused_criteria")
         .eq("user_id", user_id)
         .single()
         .execute()
@@ -111,6 +153,8 @@ async def run_daily_agents_for_user(user_id: str) -> None:
     weights = profile.get("strategy_weights") or {}
     actions_per_day = (weights.get("actions_per_day") if isinstance(weights, dict) else None) or 3
     focused_label = focused if focused else "all criteria"
+    role = (profile.get("role") or "").strip()
+    profile_context = _build_profile_context(profile)
 
     try:
         # 1. Evidence scoring → derive weak criteria
@@ -119,39 +163,55 @@ async def run_daily_agents_for_user(user_id: str) -> None:
             f"Score the EB-1A evidence for user_id {user_id} now. "
             f"Call read_evidence, then return the JSON object described in your instructions.",
         )
-        weak_criteria, scores = _parse_evidence(evidence_text, focused)
-        log.info(f"[{user_id}] weak_criteria={weak_criteria}")
+        weak_criteria, scores, critical_gaps = _parse_evidence(evidence_text, focused)
+        log.info(f"[{user_id}] weak_criteria={weak_criteria}, critical_gaps={critical_gaps}")
 
         # 2. Discovery (worldwide) — always runs with a non-empty criteria set
-        disc_summary = await _run_single_agent(
-            build_discovery_agent(user_id), user_id,
+        disc_message = (
             f"user_id: {user_id}\n"
             f"domain: {domain}\n"
+            f"role: {role}\n"
             f"weak_criteria: {weak_criteria}\n"
-            f"focused_criteria: {focused_label}\n\n"
-            "Discover real, currently-open EB-1A opportunities WORLDWIDE for these criteria, "
-            "tag each with country and mode, and write them with write_opportunities.",
+            f"focused_criteria: {focused_label}\n"
         )
+        if profile_context:
+            disc_message += f"\nUser profile:\n{profile_context}\n"
+        disc_message += (
+            "\nDiscover real, currently-open EB-1A opportunities WORLDWIDE for these criteria, "
+            "tag each with country and mode, and write them with write_opportunities."
+        )
+        disc_summary = await _run_single_agent(build_discovery_agent(user_id), user_id, disc_message)
         log.info(f"[{user_id}] Discovery: {disc_summary[:200]}")
 
         # 3. Prioritization → score all open opportunities
-        await _run_single_agent(
-            build_prioritization_agent(user_id), user_id,
+        prio_message = (
             f"user_id: {user_id}\n"
-            f"evidence_scores: {scores}\n\n"
-            "Call read_opportunities, score every open opportunity using your formula, "
-            "then call update_opportunity_scores.",
+            f"evidence_scores: {scores}\n"
         )
+        if profile_context:
+            prio_message += f"\nUser profile:\n{profile_context}\n"
+        prio_message += (
+            "\nCall read_opportunities, score every open opportunity using your formula, "
+            "then call update_opportunity_scores."
+        )
+        await _run_single_agent(build_prioritization_agent(user_id), user_id, prio_message)
 
         # 4. Coach → today's daily plan
-        await _run_single_agent(
-            build_coach_agent(user_id), user_id,
+        coach_message = (
             f"user_id: {user_id}\n"
             f"actions_per_day: {actions_per_day}\n"
-            f"focused_criteria: {focused_label}\n\n"
-            "Generate today's daily plan from the top-ranked opportunities and evidence gaps, "
-            "then call write_daily_plan.",
+            f"focused_criteria: {focused_label}\n"
+            f"evidence_critical_gaps: {critical_gaps}\n"
+            f"evidence_scores: {scores}\n"
         )
+        if profile_context:
+            coach_message += f"\nUser profile:\n{profile_context}\n"
+        coach_message += (
+            "\nCall read_opportunities to get the top-ranked open opportunities. "
+            "Generate today's daily plan from the top opportunities focusing on critical gaps, "
+            "then call write_daily_plan."
+        )
+        await _run_single_agent(build_coach_agent(user_id), user_id, coach_message)
         log.info(f"[{user_id}] Daily pipeline complete")
     except Exception as exc:
         log.exception(f"[{user_id}] Daily pipeline failed: {exc}")

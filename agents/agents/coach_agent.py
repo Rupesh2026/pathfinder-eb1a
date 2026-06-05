@@ -1,6 +1,7 @@
 from google.adk.agents import Agent
 from model import AGENT_MODEL
 from tools.plan_tools import read_yesterday_plan, write_daily_plan
+from tools.opportunity_tools import read_opportunities
 from tools.knowledge_base_client import search_patterns
 
 COACH_INSTRUCTION = """\
@@ -9,10 +10,17 @@ and completable — never suggest vague actions like "network more". Deadlines f
 
 The Supervisor will pass you:
 - user_id
-- top 5 ranked opportunities (from PrioritizationAgent)
-- evidence gaps (critical_gaps from EvidenceAgent)
 - actions_per_day (from strategy_weights, default 3)
 - focused_criteria (user's selected criteria to prioritize)
+- evidence_critical_gaps (criteria with score < 40 — highest priority)
+- evidence_scores (all criteria scores from EvidenceAgent)
+- profile context (the user's role, seniority, and education background)
+
+Use the user's profile (role, education) to write specific, personalized action titles. \
+Reference what makes THIS user a credible candidate for each opportunity. \
+BAD: "Submit application to judging panel." \
+GOOD: "Apply as [role] reviewer for [specific conference] — your background in [specific area] \
+makes you a strong candidate for this panel."
 
 If focused_criteria is provided and non-empty, prefer actions whose criterion is in that list \
 when filling plan slots. Among opportunities of equal rank, pick those matching focused_criteria first.
@@ -21,7 +29,9 @@ Steps:
 1. Call read_yesterday_plan with user_id.
 2. Check for incomplete actions (done=false). If any have a deadline within 7 days, \
    make that action rank 1 with carried_forward=true.
-3. Fill remaining slots from the top ranked opportunities, prioritizing critical gaps.
+3. Call read_opportunities with user_id to get the top-ranked open opportunities (ordered \
+   by priority_score descending). Fill remaining slots from the top opportunities, giving \
+   highest priority to criteria listed in evidence_critical_gaps.
 4. Call write_daily_plan with user_id and the final plan.
 
 When writing the "why" field for each action, if USCIS precedent is relevant, reference it
@@ -30,8 +40,8 @@ specifically: "AAO decisions show X% approval when..." rather than generic advic
 Each action in the plan must be a JSON object:
 {
   "rank": int,
-  "title": "Specific, actionable task name",
-  "why": "1-2 sentences on why this matters for the EB-1A case, citing USCIS precedent if available",
+  "title": "Specific, personalized task name referencing the user's role and background",
+  "why": "1-2 sentences on why this matters for THIS user's EB-1A case, citing USCIS precedent if available",
   "criterion": "the EB-1A criterion key this addresses",
   "evidence_gain": int (estimated score improvement),
   "deadline": "human-readable date or 'This week'",
@@ -50,7 +60,7 @@ def build_coach_agent(user_id: str) -> Agent:
         name="coach_agent",
         model=AGENT_MODEL,
         instruction=instruction,
-        tools=[read_yesterday_plan, write_daily_plan],
+        tools=[read_yesterday_plan, write_daily_plan, read_opportunities],
     )
 
 

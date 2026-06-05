@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import type { CriterionData, OpportunityItem } from '../hooks/useDashboard'
 import ScanButton from './ScanButton'
-import { ChevronRight, ExternalLink, CheckCircle2, X, Clock } from 'lucide-react'
+import { ChevronRight, ExternalLink, CheckCircle2, X, Clock, Sparkles } from 'lucide-react'
 
 const CRITERION_COLORS: Record<string, string> = {
   judging: 'var(--c-judging)',
@@ -27,6 +27,7 @@ function formatDeadline(deadline: string | null): string {
 type Props = {
   criteria: CriterionData[]
   opportunities: OpportunityItem[]
+  isExampleOpportunities: boolean
   loading: boolean
   lastScannedAt: string | null
   onApplied: (id: string) => void
@@ -35,7 +36,7 @@ type Props = {
 }
 
 export default function CriteriaOpportunityPanels({
-  criteria, opportunities, loading, lastScannedAt, onApplied, onIgnore, onError,
+  criteria, opportunities, isExampleOpportunities, loading, lastScannedAt, onApplied, onIgnore, onError,
 }: Props) {
   const [pending, setPending] = useState<Set<string>>(new Set())
   const [collapsedManually, setCollapsedManually] = useState<Set<string>>(new Set())
@@ -121,6 +122,19 @@ export default function CriteriaOpportunityPanels({
           </span>
         )}
       </div>
+
+      {isExampleOpportunities && (
+        <div
+          className="mb-4 flex items-start gap-2.5 rounded-lg px-3.5 py-3 text-xs"
+          style={{ background: 'var(--bg-raised)', border: '1px solid var(--accent-border)' }}
+        >
+          <Sparkles size={13} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--accent)' }} />
+          <span style={{ color: 'var(--text-secondary)' }}>
+            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>These are example opportunities.</span>
+            {' '}Use the <span className="font-medium" style={{ color: 'var(--accent)' }}>Scan Now</span> button above to discover real opportunities matched to your specific profile and EB-1A criteria gaps.
+          </span>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         {criteria.map(c => {

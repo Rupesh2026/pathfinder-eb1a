@@ -97,12 +97,18 @@ export type ProfileData = {
   target_filing_date: string | null
 }
 
+type OpportunitiesResponse = {
+  opportunities: OpportunityItem[]
+  is_example: boolean
+}
+
 type DashboardState = {
   summary: SummaryData | null
   profile: ProfileData | null
   criteria: CriterionData[]
   tasks: TasksData | null
   opportunities: OpportunityItem[]
+  isExampleOpportunities: boolean
   outcomes: OutcomeItem[]
   loading: boolean
   errors: string[]
@@ -125,6 +131,7 @@ export function useDashboard() {
     criteria: [],
     tasks: null,
     opportunities: [],
+    isExampleOpportunities: false,
     outcomes: [],
     loading: true,
     errors: [],
@@ -133,12 +140,12 @@ export function useDashboard() {
   const fetchAll = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, errors: [] }))
 
-    const [summary, profile, criteria, tasks, opportunities, outcomes] = await Promise.all([
+    const [summary, profile, criteria, tasks, oppsResponse, outcomes] = await Promise.all([
       safeFetch<SummaryData>('/api/dashboard/summary'),
       safeFetch<ProfileData>('/api/dashboard/profile'),
       safeFetch<CriterionData[]>('/api/dashboard/criteria'),
       safeFetch<TasksData>('/api/dashboard/tasks/today'),
-      safeFetch<OpportunityItem[]>('/api/dashboard/opportunities?show=applied'),
+      safeFetch<OpportunitiesResponse>('/api/dashboard/opportunities?show=applied'),
       safeFetch<OutcomeItem[]>('/api/dashboard/outcomes'),
     ])
 
@@ -152,7 +159,8 @@ export function useDashboard() {
       profile,
       criteria: criteria ?? [],
       tasks,
-      opportunities: opportunities ?? [],
+      opportunities: oppsResponse?.opportunities ?? [],
+      isExampleOpportunities: oppsResponse?.is_example ?? false,
       outcomes: outcomes ?? [],
       loading: false,
       errors,

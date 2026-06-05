@@ -21,6 +21,7 @@ export default function CommandCenter() {
     criteria,
     tasks,
     opportunities,
+    isExampleOpportunities,
     outcomes,
     loading,
     refresh,
@@ -121,6 +122,7 @@ export default function CommandCenter() {
           <CriteriaOpportunityPanels
             criteria={criteria}
             opportunities={opportunities}
+            isExampleOpportunities={isExampleOpportunities}
             loading={loading}
             lastScannedAt={summary?.scan_finished_at ?? null}
             onApplied={markOpportunityApplied}

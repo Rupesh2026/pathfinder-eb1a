@@ -49,13 +49,14 @@ export async function GET(request: Request) {
       ? MOCK_OPPORTUNITIES.filter(o => o.type === typeFilter)
       : MOCK_OPPORTUNITIES
     ).filter(isVisible)
-    return NextResponse.json(filtered)
+    return NextResponse.json({ opportunities: filtered, is_example: true })
   }
 
-  return NextResponse.json(
-    opportunities.map(o => ({
+  return NextResponse.json({
+    opportunities: opportunities.map(o => ({
       ...o,
       urgency: computeUrgency(o.deadline),
-    }))
-  )
+    })),
+    is_example: false,
+  })
 }
