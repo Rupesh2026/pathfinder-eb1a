@@ -1,11 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { signUp } from '@/app/actions/auth'
 import { Check } from 'lucide-react'
 
-export default function SignUpPage() {
+function SignUpForm() {
+  const searchParams = useSearchParams()
+  const prefillEmail = searchParams.get('email') ?? ''
+  const assessmentId = searchParams.get('assessment_id') ?? ''
+
+  const [email, setEmail] = useState(prefillEmail)
   const [error, setError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -43,7 +49,9 @@ export default function SignUpPage() {
               Start your case
             </h1>
             <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
-              Create your Pathfinder account
+              {prefillEmail
+                ? 'Create your account to unlock your full roadmap'
+                : 'Create your Pathfinder account'}
             </p>
           </div>
         </div>
@@ -59,6 +67,11 @@ export default function SignUpPage() {
           )}
 
           <form action={handleSubmit} className="space-y-4">
+            {/* Hidden field for conversion tracking */}
+            {assessmentId && (
+              <input type="hidden" name="assessment_id" value={assessmentId} />
+            )}
+
             <div>
               <label htmlFor="email" className="label">Email address</label>
               <input
@@ -67,9 +80,11 @@ export default function SignUpPage() {
                 type="email"
                 required
                 autoComplete="email"
-                autoFocus
+                autoFocus={!prefillEmail}
                 placeholder="you@example.com"
                 className="input"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
               />
             </div>
 
@@ -166,8 +181,20 @@ export default function SignUpPage() {
           <Link href="/signin" className="font-medium" style={{ color: 'var(--accent-hover)' }}>
             Sign in
           </Link>
+          {' · '}
+          <Link href="/evaluate" className="font-medium" style={{ color: 'var(--accent-hover)' }}>
+            Free evaluator
+          </Link>
         </p>
       </div>
     </div>
+  )
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignUpForm />
+    </Suspense>
   )
 }
