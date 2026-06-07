@@ -2,7 +2,7 @@
 
 An open-source multi-agent system that helps you build your EB-1A (extraordinary ability) immigration case. Agents run daily, discover real opportunities worldwide that fill your evidence gaps, score your profile against USCIS standards, and deliver a personalized action plan every morning — without you having to prompt anything.
 
-> Built with Next.js, Supabase, Python + Google ADK, and OpenAI/Gemini.
+> Built with Next.js 14, Supabase, Python + Google ADK, and OpenAI/Gemini.
 
 ![Pathfinder Dashboard](docs/dashboard-preview.png)
 
@@ -20,6 +20,7 @@ This system automates the discovery and planning work:
 - **Daily action plans** — delivers 3 concrete, completable actions each morning
 - **Weekly reflection** — analyzes your outcomes and completion rate, self-adjusts search strategy for next week
 - **USCIS knowledge base** — scrapes AAO decisions, federal court opinions, and the USCIS Policy Manual; extracts patterns by criterion; informs all agent scoring
+- **Free EB-1A evaluator** — pre-auth readiness tool at `/evaluate` that scores all 10 criteria and generates a personalized roadmap (no account required)
 
 ---
 
@@ -27,12 +28,13 @@ This system automates the discovery and planning work:
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 14 (App Router, TypeScript, Tailwind) |
+| Frontend | Next.js 14 (App Router, TypeScript, Tailwind CSS) |
 | Auth + Database | Supabase (Postgres + pgvector + RLS) |
 | Agent service | Python 3.11 + FastAPI + Google ADK |
-| AI models | OpenAI gpt-4o-mini (default) or Gemini 2.0 Flash |
-| Web search | Tavily API |
+| AI models | OpenAI gpt-4o (primary) or Gemini 2.0 Flash |
+| Web search | Tavily API (via direct HTTP) |
 | Embeddings | OpenAI text-embedding-3-small |
+| Advisor chat | Anthropic Claude or Gemini (frontend) |
 | Hosting | Vercel (frontend) + Render (agents) |
 
 ---
@@ -46,18 +48,25 @@ This system automates the discovery and planning work:
 │   │   ├── (auth)/            # Sign-in, sign-up pages
 │   │   ├── onboarding/        # First-time profile + evidence setup
 │   │   ├── dashboard/         # Main app (evidence, opportunities, advisor, calendar)
+│   │   ├── evaluate/          # Free pre-auth EB-1A evaluator (top-of-funnel)
 │   │   └── api/               # Server-side API routes
 │   ├── components/            # Shared UI components
 │   └── lib/                   # Supabase clients, types, utilities
 ├── agents/                    # Python agent service (Render)
-│   ├── agents/                # 6 ADK agents
-│   ├── tools/                 # DB, web search, knowledge base tools
+│   ├── agents/                # 6 ADK agents (evidence, discovery, prioritization, coach, reflection, KB)
+│   ├── tools/                 # DB, web search, knowledge base, plan, reflection tools
 │   ├── scrapers/              # USCIS AAO, court opinions, policy watcher
 │   ├── extractors/            # LLM pattern extractor
 │   ├── knowledge/             # EB-1A rubric text
-│   └── main.py                # FastAPI entry point + cron endpoints
+│   ├── tests/                 # Agent unit tests
+│   ├── cron_trigger.py        # Cron job entry point
+│   ├── model.py               # LLM provider abstraction
+│   └── main.py                # FastAPI entry point + all agent orchestration
 ├── supabase/
-│   └── migrations/            # 13 SQL migration files
+│   └── migrations/            # 14 SQL migration files (001–014)
+├── docs/                      # Screenshots and assets
+├── render.yaml                # Render deployment config (web service + 2 cron jobs)
+├── start.ps1                  # Windows convenience script (starts both services)
 ├── architecture.md            # Full system architecture doc
 └── AGENTS.md                  # Agent specs and prompts
 ```
@@ -68,7 +77,7 @@ This system automates the discovery and planning work:
 
 The system runs 6 agents in a deterministic daily pipeline. All outputs are written to Supabase before the frontend reads them.
 
-### Daily pipeline (7am, all users)
+### Daily pipeline (7am UTC, all users)
 
 ```
 EvidenceAgent → DiscoveryAgent → PrioritizationAgent → CoachAgent
@@ -81,7 +90,7 @@ EvidenceAgent → DiscoveryAgent → PrioritizationAgent → CoachAgent
 | **PrioritizationAgent** | Scores open opportunities using gap importance + prestige + USCIS approval rates | `opportunities` + `pattern_aggregates` | Updated `priority_score` on each opp |
 | **CoachAgent** | Generates top 3 daily actions; carries forward missed deadlines | Top 5 opps + yesterday's plan | Upserts today's `daily_plans` row |
 
-### Weekly pipeline (Sunday 7am)
+### Weekly pipeline (Sunday midnight UTC)
 
 | Agent | What it does |
 |---|---|
@@ -116,6 +125,7 @@ All user tables use Row Level Security (`auth.uid() = user_id`). The agent servi
 | `outcomes` | Application results (pending / accepted / rejected / withdrawn) |
 | `daily_plans` | Agent-generated daily actions per user (JSONB array) |
 | `weekly_reflections` | Weekly insight arrays + strategy changes |
+| `evaluator_assessments` | Free evaluator results (pre-auth, by email) |
 | `raw_documents` | Scraped USCIS decisions and policy text |
 | `document_chunks` | 1536-dim OpenAI embeddings via pgvector |
 | `case_patterns` | LLM-extracted criterion patterns (approved/denied) |
@@ -128,118 +138,275 @@ All user tables use Row Level Security (`auth.uid() = user_id`). The agent servi
 
 ### Prerequisites
 
-- Node.js 20+
-- Python 3.11+
-- [Supabase](https://supabase.com) project
-- [Render](https://render.com) account (for agent hosting + cron)
-- OpenAI API key
-- Tavily API key (for web search)
-- Anthropic API key (for the advisor chat)
+| Requirement | Version / Notes |
+|---|---|
+| Node.js | 20+ |
+| Python | 3.11+ |
+| Supabase account | [supabase.com](https://supabase.com) — free tier works |
+| OpenAI API key | For agents + embeddings |
+| Tavily API key | For web search — [tavily.com](https://tavily.com) |
+| Render account | For hosting the agent service + cron jobs |
+| Anthropic **or** Gemini API key | For the dashboard AI advisor (frontend only) |
 
-### 1. Clone and install
+---
+
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Rupesh2026/pathfinder-eb1a
-cd eb1a-agent-system
+git clone https://github.com/Rupesh2026/pathfinder-eb1a.git
+cd pathfinder-eb1a
+```
 
-# Frontend
+---
+
+### 2. Install frontend dependencies
+
+```bash
 cd frontend
 npm install
+```
 
-# Agents
-cd ../agents
+---
+
+### 3. Install agent dependencies
+
+Create a Python virtual environment first (strongly recommended):
+
+```bash
+cd agents
+
+# Create venv
+python -m venv venv
+
+# Activate — macOS / Linux
+source venv/bin/activate
+
+# Activate — Windows (PowerShell)
+.\venv\Scripts\Activate.ps1
+
+# Install packages
 pip install -r requirements.txt
 ```
 
-### 2. Set up Supabase
+---
 
-1. Create a new Supabase project
-2. Run all migrations in order:
+### 4. Set up Supabase
+
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Enable the **pgvector** extension: Dashboard → Database → Extensions → search "vector" → enable
+3. Run all 14 migrations in order:
+
+**Option A — Supabase CLI (recommended)**
 
 ```bash
-# Using Supabase CLI
+# Install CLI: https://supabase.com/docs/guides/cli
+supabase login
+supabase link --project-ref your-project-ref
 supabase db push
-
-# Or run each file manually in the SQL editor:
-# supabase/migrations/001_*.sql through 013_*.sql
 ```
 
-3. Enable the `pgvector` extension in your Supabase project (Database → Extensions → vector)
+**Option B — SQL Editor (manual)**
 
-### 3. Configure environment variables
+Paste and run each file from `supabase/migrations/` in the Supabase SQL editor, in order:
 
-**Frontend** — create `frontend/.env.local`:
+```
+001_enums.sql
+002_tables.sql
+003_indexes.sql
+004_rls.sql
+005_strategy_weights.sql
+006_scan_status.sql
+007_daily_plans_update_policy.sql
+008_profile_extensions.sql
+009_target_filing_date.sql
+010_recommendation_letters.sql
+011_pgvector.sql
+012_knowledge_base.sql
+013_opportunity_location.sql
+014_evaluator_assessments.sql
+```
+
+---
+
+### 5. Configure environment variables
+
+**Frontend** — copy the example and fill in your values:
+
+```bash
+cp frontend/.env.local.example frontend/.env.local
+```
+
+`frontend/.env.local`:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+# Supabase — get from project Settings > API
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
-ANTHROPIC_API_KEY=sk-ant-...         # for /advisor chat
-AGENT_SERVER_URL=https://your-render-service.onrender.com
-CRON_API_KEY=your-shared-secret
+# Agent server — Render URL (or http://localhost:8000 locally)
+AGENT_SERVER_URL=https://your-agent-server.onrender.com
+
+# Shared secret — must match CRON_API_KEY in the agent service
+CRON_API_KEY=your-cron-api-key
+
+# AI Advisor — add one or both; Anthropic takes priority if both are present
+GEMINI_API_KEY=your-gemini-api-key
+# ANTHROPIC_API_KEY=sk-ant-your-key
 ```
 
-**Agent service** — create `agents/.env`:
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key   # never expose to frontend
-
-OPENAI_API_KEY=sk-...
-TAVILY_API_KEY=tvly-...
-LLM_PROVIDER=openai                               # or "gemini"
-
-SERVICE_URL=https://your-render-service.onrender.com
-CRON_API_KEY=your-shared-secret                   # same as frontend
-```
-
-### 4. Run locally
+**Agent service** — copy the example and fill in your values:
 
 ```bash
-# Terminal 1 — Frontend (http://localhost:2028)
-cd frontend
-npm run dev
-
-# Terminal 2 — Agent service (http://localhost:8000)
-cd agents
-uvicorn main:app --reload --port 8000
+cp agents/.env.example agents/.env
 ```
 
-### 5. Deploy
+`agents/.env`:
+
+```env
+# Supabase — service role key bypasses RLS (never expose to frontend)
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# LLM provider: "openai" or "gemini"
+LLM_PROVIDER=openai
+
+# OpenAI (used when LLM_PROVIDER=openai)
+OPENAI_API_KEY=sk-your-openai-key
+
+# Gemini — AI Studio (used when LLM_PROVIDER=gemini)
+# GEMINI_API_KEY=your-gemini-key
+
+# Gemini — Vertex AI (optional, only if using Vertex instead of AI Studio)
+# GOOGLE_APPLICATION_CREDENTIALS=vertex_key.json
+# GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+# GOOGLE_CLOUD_LOCATION=us-central1
+# GOOGLE_GENAI_USE_VERTEXAI=0
+
+# Web search (Tavily)
+TAVILY_API_KEY=tvly-your-tavily-key
+
+# Cron security — same value as CRON_API_KEY in frontend/.env.local
+CRON_API_KEY=your-cron-api-key
+```
+
+---
+
+### 6. Run locally
+
+**macOS / Linux — two terminals:**
+
+```bash
+# Terminal 1 — Agent service (http://localhost:8000)
+cd agents
+source venv/bin/activate
+uvicorn main:app --reload --port 8000
+
+# Terminal 2 — Frontend (http://localhost:2028)
+cd frontend
+npm run dev
+```
+
+**macOS / Linux — single command (uses `concurrently`):**
+
+```bash
+# From the repo root
+npm install        # installs concurrently
+npm run dev        # starts both agents and frontend
+```
+
+**Windows — PowerShell convenience script:**
+
+```powershell
+# From the repo root — opens two terminal windows
+.\start.ps1
+```
+
+Once running:
+- Frontend: [http://localhost:2028](http://localhost:2028)
+- Agent API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
+### 7. Seed the knowledge base (optional but recommended)
+
+Run the KB ingestion to populate USCIS AAO patterns used for scoring:
+
+```bash
+# Agent service must be running first
+curl -X POST http://localhost:8000/run-knowledge-base \
+  -H "X-Api-Key: your-cron-api-key"
+```
+
+---
+
+### 8. Deploy
 
 **Frontend → Vercel**
 
 ```bash
+npm install -g vercel
 vercel deploy
 ```
 
-Set the same `frontend/.env.local` variables in your Vercel project settings.
+Add all `frontend/.env.local` variables in Vercel's project settings under **Environment Variables**.
 
 **Agents → Render**
 
-1. Create a new Render Web Service pointing to the `/agents` directory
-2. Set build command: `pip install -r requirements.txt`
-3. Set start command: `uvicorn main:app --host 0.0.0.0 --port 8000`
-4. Add all `agents/.env` variables in Render's Environment tab
-5. Add two Render Cron Jobs:
+The `render.yaml` at the repo root configures everything automatically:
 
-| Name | Schedule | Command |
+1. Push the repo to GitHub
+2. In Render: **New** → **Blueprint** → connect the repo
+3. Render will create:
+   - One **Web Service** (`eb1a-agent-server`) running FastAPI
+   - One **Cron Job** (`eb1a-daily-trigger`) — runs at 7am UTC daily
+   - One **Cron Job** (`eb1a-weekly-trigger`) — runs at midnight UTC Sunday
+4. Fill in the environment variables in each service's **Environment** tab (Render marks them `sync: false` as a reminder)
+
+Manual deploy without Blueprint:
+
+| Setting | Value |
+|---|---|
+| Root directory | `agents` |
+| Build command | `pip install -r requirements.txt` |
+| Start command | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| Environment | See `agents/.env.example` |
+
+---
+
+## API endpoints
+
+All endpoints require header `X-Api-Key: {CRON_API_KEY}`.
+
+| Endpoint | Trigger | Purpose |
 |---|---|---|
-| Daily agents | `0 7 * * *` | `python cron_trigger.py daily` |
-| Weekly reflection | `0 7 * * 0` | `python cron_trigger.py weekly` |
-| Knowledge base | `0 2 * * 0` | `curl -X POST $SERVICE_URL/run-knowledge-base -H "X-Api-Key: $CRON_API_KEY"` |
+| `POST /run-daily-agents` | Render cron 7am UTC | Runs full pipeline for all active users |
+| `POST /run-daily-agent` | Dashboard on-demand | Runs pipeline for one user; updates `scan_status` |
+| `GET /scan-status/{user_id}` | Dashboard polling | Returns `scan_status`, timestamps |
+| `POST /run-weekly-reflection` | Render cron Sunday | Runs ReflectionAgent for all users |
+| `POST /run-knowledge-base` | Manual / scheduled | Ingests USCIS decisions into pgvector |
 
 ---
 
 ## Opportunity visibility rules
 
-The system discovers opportunities worldwide. Non-US in-person events are filtered from the UI because they require travel — they stay in the database and become visible if the user is outside the US.
+The system discovers opportunities worldwide. Non-US in-person events are filtered from the dashboard because they require travel flexibility that users may not have.
 
-| Location | Delivery mode | Shown? |
+| Location | Delivery mode | Shown in dashboard? |
 |---|---|---|
 | US | Any | Yes |
 | Non-US | Online or hybrid | Yes |
-| Non-US | In-person only | No |
+| Non-US | In-person only | No (stored in DB, not shown) |
+
+---
+
+## Switching AI models
+
+Set `LLM_PROVIDER` in `agents/.env`:
+
+- `openai` — uses `gpt-4o` (default; handles large token contexts well)
+- `gemini` — uses `gemini-2.0-flash` via AI Studio or Vertex AI
+
+The frontend advisor chat uses Anthropic Claude or Gemini depending on which key is set in `frontend/.env.local` — it does not use `LLM_PROVIDER`.
 
 ---
 
@@ -253,21 +420,20 @@ The system discovers opportunities worldwide. Non-US in-person events are filter
 6. Scholarly articles (in professional journals or major media)
 7. Critical role (at distinguished organizations)
 8. High salary (relative to peers in the field)
-9. Artistic exhibitions *(rarely applicable for tech)*
-10. Commercial success *(rarely applicable for tech)*
+9. Artistic exhibitions *(rarely applicable outside creative fields)*
+10. Commercial success *(rarely applicable outside creative fields)*
 
-USCIS minimum: 3 criteria. Strong case: 5–6 criteria with substantial evidence.
+USCIS minimum: **3 criteria**. A strong petition typically demonstrates 5–6 criteria with substantial, documented evidence.
 
 ---
 
-## Switching AI models
+## Running tests
 
-Set `LLM_PROVIDER` in `agents/.env`:
-
-- `openai` — uses `gpt-4o-mini` (default, handles large token contexts well)
-- `gemini` — uses `gemini-2.0-flash`
-
-The frontend advisor chat always uses Claude via the Anthropic API regardless of this setting.
+```bash
+cd agents
+source venv/bin/activate   # or .\venv\Scripts\Activate.ps1 on Windows
+python -m pytest tests/ -v
+```
 
 ---
 
@@ -277,7 +443,7 @@ Pull requests are welcome. Areas that could use help:
 
 - Additional opportunity scrapers (grant databases, conference aggregators)
 - More criterion-specific search query templates in `DiscoveryAgent`
-- Frontend improvements (evidence upload, letter tracker, calendar)
+- Frontend improvements (evidence upload, letter tracker, calendar view)
 - Better PDF parsing for AAO decisions
 - Support for additional visa categories (O-1A, NIW)
 
