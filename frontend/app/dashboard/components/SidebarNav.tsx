@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Shield,
   Compass,
-  CheckSquare,
   MessageSquare,
   Calendar,
   Mail,
@@ -40,7 +39,15 @@ export default function SidebarNav({ needsFocusSetup }: Props) {
   return (
     <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
       <div className="space-y-0.5">
-        <p className="section-header mb-2">Main</p>
+        <p
+          style={{
+            fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)',
+            letterSpacing: '0.07em', textTransform: 'uppercase',
+            padding: '0 10px', marginBottom: 6,
+          }}
+        >
+          Main
+        </p>
         {PRIMARY_NAV.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
@@ -53,8 +60,16 @@ export default function SidebarNav({ needsFocusSetup }: Props) {
         ))}
       </div>
 
-      <div className="mt-4 space-y-0.5">
-        <p className="section-header mb-2">Tools</p>
+      <div className="mt-5 space-y-0.5">
+        <p
+          style={{
+            fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)',
+            letterSpacing: '0.07em', textTransform: 'uppercase',
+            padding: '0 10px', marginBottom: 6,
+          }}
+        >
+          Tools
+        </p>
         {SECONDARY_NAV.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
@@ -65,33 +80,48 @@ export default function SidebarNav({ needsFocusSetup }: Props) {
             <span>{label}</span>
             {label === 'Profile' && needsFocusSetup && (
               <span
-                className="ml-auto h-1.5 w-1.5 rounded-full flex-shrink-0"
-                style={{ background: 'var(--amber)' }}
+                style={{
+                  marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%',
+                  background: 'var(--amber)', flexShrink: 0,
+                }}
               />
             )}
           </Link>
         ))}
       </div>
 
-      {/* Scan shortcut */}
-      <div className="mt-auto">
-        <div className="mb-2 h-px" style={{ background: 'var(--border)' }} />
+      {/* Daily Agent shortcut */}
+      <div style={{ marginTop: 'auto' }}>
+        <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors"
-          style={{ color: 'var(--text-muted)' }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 9,
+            padding: '7px 10px', borderRadius: 9,
+            fontSize: 13, fontWeight: 500, color: 'var(--text-muted)',
+            textDecoration: 'none',
+            transition: 'background 0.12s ease, color 0.12s ease',
+            letterSpacing: '-0.01em',
+          }}
           onMouseEnter={e => {
-            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'
             ;(e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'
+            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'
           }}
           onMouseLeave={e => {
-            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
             ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
           }}
         >
-          <Zap size={13} strokeWidth={1.75} />
+          <Zap size={14} strokeWidth={1.75} />
           <span>Daily Agent</span>
-          <span className="ml-auto rounded-md px-1.5 py-0.5 text-[10px]" style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}>
+          <span
+            style={{
+              marginLeft: 'auto', borderRadius: 6, padding: '2px 7px',
+              fontSize: 10.5, background: 'var(--bg-raised)',
+              color: 'var(--text-muted)', border: '1px solid var(--border)',
+              letterSpacing: '-0.01em',
+            }}
+          >
             7am
           </span>
         </Link>

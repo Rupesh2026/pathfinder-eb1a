@@ -20,7 +20,20 @@ If focused_criteria is provided and non-empty, only discover opportunities for c
 that appear in BOTH weak_criteria AND focused_criteria. If focused_criteria is empty or \
 "all criteria", discover for all weak_criteria as usual.
 
-Current year: {date.today().year}
+Today's date is {date.today().isoformat()} (treat this as "now"; current year {date.today().year}).
+
+FUTURE-DATED ONLY (critical — do not waste the user's time on past opportunities):
+Only surface opportunities whose application / submission / nomination deadline is ON OR
+AFTER today ({date.today().isoformat()}). Anything whose deadline has already passed is useless
+and must be excluded.
+  - For recurring events whose current edition has already closed, find the NEXT edition's
+    open call instead, and include it only if that next deadline is today or later. When the
+    current year's deadline has passed, search the next year's edition.
+  - Opportunities with NO stated deadline (rolling / always-open — e.g. peer-review signups,
+    editorial-board applications, podcast guest pitches) are fine: set deadline to null and keep them.
+  - Every stated deadline you write MUST be today or a future date in YYYY-MM-DD form.
+The backend also automatically rejects any opportunity whose deadline is before today, so be
+accurate — a past deadline you pass will simply be discarded.
 
 DEDUPLICATION NOTE: write_opportunities handles deduplication automatically on the backend.
   - If an opportunity URL already exists in the database, it will refresh its deadline and
@@ -147,8 +160,8 @@ Steps:
       society awards. Do not recommend a pure-research venue to an industry practitioner,
       or vice versa, unless the venue explicitly bridges both communities.
 
-   Additionally filter out: results whose deadline has ALREADY PASSED (confirmed from the
-   snippet/page, not guessed).
+   Additionally filter out: results whose deadline is BEFORE today ({date.today().isoformat()}) —
+   i.e. any deadline that has already passed (confirmed from the snippet/page, not guessed).
    KEEP opportunities with no stated deadline that pass the gate (set deadline to null).
    Do NOT filter out results because they sound similar to something you've seen before —
    write_opportunities will deduplicate on the backend.
@@ -162,7 +175,7 @@ Steps:
      "mode": one of online|in_person|hybrid }}
 5. Return a summary: how many were found, inserted, updated, which criteria were covered.
 
-Never write: past events with confirmed expired deadlines.
+Never write opportunities whose deadline is before today ({date.today().isoformat()}).
 """
 
 

@@ -26,7 +26,7 @@ function ScoreBadge({ score, tier }: { score: number | null; tier: string | null
   if (score == null) return <span className="badge badge-muted">Unscored</span>
   if (tier === 'strong') return <span className="badge badge-green">{score}/100 · Strong</span>
   if (tier === 'medium') return <span className="badge badge-amber">{score}/100 · Medium</span>
-  return <span className="badge badge-red">{score}/100 · Weak</span>
+  return <span className="badge" style={{ background: 'rgba(234,88,12,0.1)', color: 'var(--c-critical_role)', border: '1px solid rgba(234,88,12,0.25)' }}>{score}/100 · Weak</span>
 }
 
 export default function EvidencePage() {
@@ -200,7 +200,7 @@ export default function EvidencePage() {
                 </div>
                 <div className="flex items-center gap-3">
                   {!hasCoverage ? (
-                    <span className="badge badge-red">No evidence</span>
+                    <span className="badge" style={{ background: 'var(--bg-overlay)', color: 'var(--text-secondary)', border: '1px solid var(--border-strong)' }}>No evidence</span>
                   ) : avgScore >= 65 ? (
                     <span className="badge badge-green flex items-center gap-1">
                       <TrendingUp size={9} /> Strong
@@ -208,7 +208,7 @@ export default function EvidencePage() {
                   ) : avgScore >= 40 ? (
                     <span className="badge badge-amber">Building</span>
                   ) : (
-                    <span className="badge badge-red">Weak</span>
+                    <span className="badge" style={{ background: 'rgba(234,88,12,0.1)', color: 'var(--c-critical_role)', border: '1px solid rgba(234,88,12,0.25)' }}>Weak</span>
                   )}
                   <ChevronRight size={13} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-muted)' }} />
                 </div>

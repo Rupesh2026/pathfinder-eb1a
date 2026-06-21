@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import OpportunityCard from '@/components/OpportunityCard'
 import ScanButton from '../components/ScanButton'
 import { CRITERION_LABELS, type CriterionType, type OpportunityType } from '@/lib/types'
-import { VISIBILITY_OR_FILTER } from '@/lib/opportunity-visibility'
+import { VISIBILITY_OR_FILTER, futureDeadlineOrFilter } from '@/lib/opportunity-visibility'
 import { Compass, Info } from 'lucide-react'
 
 const TYPE_LABELS: Record<OpportunityType, string> = {
@@ -62,6 +62,8 @@ export default async function OpportunitiesPage({ searchParams }: Props) {
     .eq('user_id', user!.id)
     .eq('dismissed', false)
     .or(VISIBILITY_OR_FILTER)
+    // Hide opportunities whose deadline has passed (keep undated/rolling ones).
+    .or(futureDeadlineOrFilter())
     .order('priority_score', { ascending: false })
 
   if (!showApplied) query = query.eq('applied', false)

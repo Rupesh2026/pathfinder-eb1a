@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { CRITERION_LABELS, type CriterionType } from '@/lib/types'
+import { todayISO } from '@/lib/opportunity-visibility'
 import { Calendar, ExternalLink, CheckCircle2 } from 'lucide-react'
 
 function urgencyColor(daysAway: number): string {
-  if (daysAway <= 7)  return 'var(--red)'
+  if (daysAway <= 7)  return 'var(--c-critical_role)' // warm coral — legible, not alarm red
   if (daysAway <= 30) return 'var(--amber)'
   return 'var(--green)'
 }
@@ -37,6 +38,8 @@ export default async function CalendarPage() {
     .eq('user_id', user!.id)
     .eq('dismissed', false)
     .not('deadline', 'is', null)
+    // Upcoming only — never list a deadline that has already passed.
+    .gte('deadline', todayISO())
     .order('deadline', { ascending: true })
 
   if (focusedCriteria.length > 0) query = query.in('criterion', focusedCriteria)

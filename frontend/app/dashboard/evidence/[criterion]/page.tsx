@@ -34,14 +34,14 @@ function scoreColor(score: number): string {
   if (score >= 65) return 'var(--green)'
   if (score >= 40) return 'var(--blue)'
   if (score >= 20) return 'var(--amber)'
-  return 'var(--red)'
+  return 'var(--c-critical_role)' // warm coral instead of alarm red
 }
 
 function scoreBg(score: number): string {
   if (score >= 65) return 'var(--green-subtle)'
   if (score >= 40) return 'var(--blue-subtle)'
   if (score >= 20) return 'var(--amber-subtle)'
-  return 'var(--red-subtle)'
+  return 'rgba(234,88,12,0.08)'
 }
 
 function tierLabel(score: number): string {

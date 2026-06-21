@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import type { TasksData, TaskAction } from '../hooks/useDashboard'
+import Link from 'next/link'
+import type { TasksData, TaskAction, OpportunityItem } from '../hooks/useDashboard'
 import { CRITERION_LABELS, type CriterionType } from '@/lib/types'
-import { RotateCcw, Clock, Calendar } from 'lucide-react'
+import { RotateCcw, Clock, Calendar, ExternalLink, ArrowRight } from 'lucide-react'
 
 const CRITERION_COLORS: Record<string, string> = {
   judging: 'var(--c-judging)',
@@ -20,18 +21,35 @@ const CRITERION_COLORS: Record<string, string> = {
 
 type Props = {
   tasks: TasksData | null
+  opportunities?: OpportunityItem[]
   loading: boolean
   onToggle: (rank: number, done: boolean) => void
   onError: (msg: string) => void
 }
 
-function TaskItem({ action, pending, onToggle }: {
+/** Build the task's action links. "View details" always opens the in-app
+ *  opportunities list filtered to this criterion (full details + Apply buttons).
+ *  When the task maps to a specific open opportunity with a URL, also expose a
+ *  direct external "Apply" link. */
+function linksFor(action: TaskAction, opportunities: OpportunityItem[]): { detailsHref: string; applyUrl: string | null } {
+  const open = opportunities.filter(o => !o.applied && o.criterion === action.criterion)
+  const tl = action.title.toLowerCase()
+  const direct = open.find(o => !!o.url && (tl.includes(o.title.toLowerCase()) || o.title.toLowerCase().includes(tl)))
+  return {
+    detailsHref: `/dashboard/opportunities?criterion=${action.criterion}`,
+    applyUrl: direct?.url ?? null,
+  }
+}
+
+function TaskItem({ action, pending, onToggle, opportunities }: {
   action: TaskAction
   pending: boolean
   onToggle: () => void
+  opportunities: OpportunityItem[]
 }) {
   const criterionColor = CRITERION_COLORS[action.criterion] ?? 'var(--accent)'
   const label = CRITERION_LABELS[action.criterion as CriterionType] ?? action.criterion
+  const links = linksFor(action, opportunities)
 
   return (
     <div
@@ -118,13 +136,35 @@ function TaskItem({ action, pending, onToggle }: {
               +{action.evidence_gain} pts
             </span>
           )}
+          {!action.done && (
+            <span className="ml-auto flex items-center gap-3">
+              <Link
+                href={links.detailsHref}
+                className="flex items-center gap-1 text-[11px] font-semibold"
+                style={{ color: 'var(--accent)' }}
+              >
+                View details <ArrowRight size={10} />
+              </Link>
+              {links.applyUrl && (
+                <a
+                  href={links.applyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[11px] font-semibold"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Apply <ExternalLink size={10} />
+                </a>
+              )}
+            </span>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-export default function TaskList({ tasks, loading, onToggle, onError }: Props) {
+export default function TaskList({ tasks, opportunities = [], loading, onToggle, onError }: Props) {
   const [pending, setPending] = useState<Set<number>>(new Set())
 
   async function handleToggle(action: TaskAction) {
@@ -215,6 +255,7 @@ export default function TaskList({ tasks, loading, onToggle, onError }: Props) {
             <TaskItem
               key={action.rank}
               action={action}
+              opportunities={opportunities}
               pending={pending.has(action.rank)}
               onToggle={() => handleToggle(action)}
             />

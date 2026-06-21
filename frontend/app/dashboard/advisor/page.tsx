@@ -190,7 +190,7 @@ export default function AdvisorPage() {
             <span className="badge badge-indigo">Strength {strength}%</span>
           )}
           {gaps.length > 0 && (
-            <span className="badge badge-red">{gaps.length} gaps</span>
+            <span className="badge badge-amber">{gaps.length} gaps</span>
           )}
           {context.domain && (
             <span className="badge badge-muted">{context.role}</span>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useDashboard } from './hooks/useDashboard'
 import StatsRow from './components/StatsRow'
 import CriteriaPanel from './components/CriteriaPanel'
@@ -52,7 +52,7 @@ export default function CommandCenter() {
   const name = profile?.role?.split(' ')[0] ?? ''
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
 
       {/* ── Page header ─────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -87,60 +87,82 @@ export default function CommandCenter() {
         </div>
       </div>
 
-      {/* ── Stats ────────────────────────────────────────── */}
-      <StatsRow summary={summary} loading={loading} targetFilingDate={profile?.target_filing_date} />
+      {/* ── Overview ─────────────────────────────────────── */}
+      <Section label="Overview" hint="Your case at a glance">
+        <StatsRow summary={summary} loading={loading} targetFilingDate={profile?.target_filing_date} />
+      </Section>
 
-      {/* ── Main grid: tasks + readiness + deadlines ─────── */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Today's tasks (wide) */}
-        <div className="lg:col-span-2">
-          <TaskList
-            tasks={tasks}
-            loading={loading}
-            onToggle={updateTask}
-            onError={setToast}
-          />
+      {/* ── Today's focus: plan + readiness + deadlines ──── */}
+      <Section label="Do this today" hint="Your AI plan, filing readiness, and what's due soon">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <TaskList
+              tasks={tasks}
+              opportunities={opportunities}
+              loading={loading}
+              onToggle={updateTask}
+              onError={setToast}
+            />
+          </div>
+          <div className="space-y-4">
+            <ReadinessCard />
+            <UpcomingDeadlines />
+          </div>
         </div>
+      </Section>
 
-        {/* Readiness + deadlines stack */}
-        <div className="space-y-4">
-          <ReadinessCard />
-          <UpcomingDeadlines />
-        </div>
-      </div>
+      {/* ── Evidence health ──────────────────────────────── */}
+      <Section label="Where you stand" hint="Strength of evidence across your EB-1A criteria">
+        <CriteriaPanel
+          criteria={criteria}
+          loading={loading}
+          focused={(profile?.focused_criteria?.length ?? 0) > 0}
+        />
+      </Section>
 
-      {/* ── Criteria evidence health ──────────────────────── */}
-      <CriteriaPanel
-        criteria={criteria}
-        loading={loading}
-        focused={(profile?.focused_criteria?.length ?? 0) > 0}
-      />
+      {/* ── Opportunities ────────────────────────────────── */}
+      <Section label="Grow your case" hint="Apply to opportunities that build evidence for your weak criteria">
+        <CriteriaOpportunityPanels
+          opportunities={opportunities}
+          isExampleOpportunities={isExampleOpportunities}
+          loading={loading}
+          lastScannedAt={summary?.scan_finished_at ?? null}
+          onApplied={markOpportunityApplied}
+          onIgnore={dismissOpportunity}
+          onError={setToast}
+        />
+      </Section>
 
-      {/* ── Opportunities + outcomes ──────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <CriteriaOpportunityPanels
-            criteria={criteria}
-            opportunities={opportunities}
-            isExampleOpportunities={isExampleOpportunities}
-            loading={loading}
-            lastScannedAt={summary?.scan_finished_at ?? null}
-            onApplied={markOpportunityApplied}
-            onIgnore={dismissOpportunity}
-            onError={setToast}
-          />
-        </div>
-        <div>
-          <OutcomeTracker
-            outcomes={outcomes}
-            loading={loading}
-            onStatusChange={updateOutcomeStatus}
-            onError={setToast}
-          />
-        </div>
-      </div>
+      {/* ── Applications ─────────────────────────────────── */}
+      <Section label="Track your applications" hint="Outcomes of opportunities you've applied to">
+        <OutcomeTracker
+          outcomes={outcomes}
+          loading={loading}
+          onStatusChange={updateOutcomeStatus}
+          onError={setToast}
+        />
+      </Section>
 
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
+  )
+}
+
+function Section({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-0.5">
+        <h2
+          className="text-[11px] font-semibold uppercase"
+          style={{ color: 'var(--text-secondary)', letterSpacing: '0.08em' }}
+        >
+          {label}
+        </h2>
+        {hint && (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>· {hint}</span>
+        )}
+      </div>
+      {children}
+    </section>
   )
 }

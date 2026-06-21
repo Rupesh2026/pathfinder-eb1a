@@ -21,6 +21,34 @@ export function isVisible(opp: { is_us?: boolean | null; delivery_mode?: string 
   return Boolean(opp.is_us) || (opp.delivery_mode ?? 'online') !== 'in_person'
 }
 
+// Future-deadline rule (mirrors agents/tools/opportunity_tools): an opportunity is
+// only useful while it can still be applied to. We keep opportunities whose deadline
+// is today or later, plus undated (rolling) ones; expired deadlines are hidden.
+
+/** Today's date as YYYY-MM-DD, for date-only deadline comparisons. */
+export function todayISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/** PostgREST `.or()` filter: deadline is null OR today-or-later. */
+export function futureDeadlineOrFilter(today: string = todayISO()): string {
+  return `deadline.is.null,deadline.gte.${today}`
+}
+
+/** Apply the future-deadline rule to a Supabase query builder. */
+export function applyFutureDeadlineFilter<T extends { or: (f: string) => T }>(
+  query: T,
+  today: string = todayISO(),
+): T {
+  return query.or(futureDeadlineOrFilter(today))
+}
+
+/** In-memory equivalent: keep undated or today-or-future opportunities. */
+export function isNotExpired(opp: { deadline?: string | null }, today: string = todayISO()): boolean {
+  if (!opp.deadline) return true
+  return opp.deadline.slice(0, 10) >= today
+}
+
 export const MODE_LABELS: Record<OpportunityMode, string> = {
   online: 'Online',
   in_person: 'In person',

@@ -8,7 +8,7 @@ import { Calendar, ArrowRight } from 'lucide-react'
 type DeadlineOpp = { id: string; title: string; criterion: string | null; deadline: string }
 
 function urgencyColor(days: number): string {
-  if (days <= 7)  return 'var(--red)'
+  if (days <= 7)  return 'var(--c-critical_role)' // warm coral — legible, not alarm red
   if (days <= 30) return 'var(--amber)'
   return 'var(--green)'
 }

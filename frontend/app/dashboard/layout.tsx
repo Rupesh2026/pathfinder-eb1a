@@ -22,25 +22,48 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-page)' }}>
-      {/* ── Sidebar ──────────────────────────────────────── */}
+      {/* ── Sidebar ────────────────────────────────────────── */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 flex w-[220px] flex-col"
+        className="fixed inset-y-0 left-0 z-30 flex w-[224px] flex-col"
         style={{
           background: 'var(--bg-surface)',
           borderRight: '1px solid var(--border)',
+          boxShadow: '1px 0 0 rgba(0,0,0,0.04)',
         }}
       >
         {/* Logo */}
-        <div className="flex h-14 items-center gap-3 px-4" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div
+          className="flex h-[60px] items-center gap-3 px-4"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
           <div
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-white text-xs font-bold"
-            style={{ background: 'var(--accent)' }}
+            style={{
+              width: 32, height: 32, borderRadius: 10, background: 'var(--accent)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 800, color: 'white',
+              boxShadow: '0 3px 10px rgba(232,100,58,0.28)',
+              flexShrink: 0,
+            }}
           >
             P
           </div>
           <div>
-            <p className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>Pathfinder</p>
-            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>EB-1A Builder</p>
+            <p
+              style={{
+                fontSize: 14, fontWeight: 700, color: 'var(--text-primary)',
+                margin: 0, lineHeight: 1.2, letterSpacing: '-0.03em',
+              }}
+            >
+              Pathfinder
+            </p>
+            <p
+              style={{
+                fontSize: 11, color: 'var(--text-muted)',
+                margin: 0, letterSpacing: '-0.01em',
+              }}
+            >
+              EB-1A Builder
+            </p>
           </div>
         </div>
 
@@ -48,14 +71,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNav needsFocusSetup={needsFocusSetup} />
 
         {/* User footer */}
-        <div className="p-3" style={{ borderTop: '1px solid var(--border)' }}>
+        <div
+          className="p-3"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
           <SignOutButton initials={initials} label={profile?.role ?? user?.email ?? ''} />
         </div>
       </aside>
 
-      {/* ── Main ─────────────────────────────────────────── */}
-      <main className="ml-[220px] flex-1 min-w-0">
-        <div className="mx-auto max-w-6xl px-8 py-8">
+      {/* ── Main ──────────────────────────────────────────── */}
+      <main className="ml-[224px] flex-1 min-w-0">
+        <div className="mx-auto max-w-[1200px] px-8 py-8">
           {children}
         </div>
       </main>

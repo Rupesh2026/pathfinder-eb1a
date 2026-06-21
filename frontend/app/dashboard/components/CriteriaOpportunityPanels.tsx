@@ -2,9 +2,18 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import type { CriterionData, OpportunityItem } from '../hooks/useDashboard'
+import type { OpportunityItem } from '../hooks/useDashboard'
+import { CRITERION_LABELS, type CriterionType } from '@/lib/types'
+import { getModeBadge, countryLabel } from '@/lib/opportunity-visibility'
 import ScanButton from './ScanButton'
-import { ChevronRight, ExternalLink, CheckCircle2, X, Clock, Sparkles } from 'lucide-react'
+import { ExternalLink, CheckCircle2, X, Clock, Sparkles, Star, MapPin, Globe, ArrowRight } from 'lucide-react'
+
+const MAX_VISIBLE = 6
+
+const TYPE_LABELS: Record<string, string> = {
+  cfp: 'CFP', judging: 'Judging', speaking: 'Speaking',
+  award: 'Award', podcast: 'Podcast', grant: 'Grant', peer_review: 'Peer Review',
+}
 
 const CRITERION_COLORS: Record<string, string> = {
   judging: 'var(--c-judging)',
@@ -25,7 +34,6 @@ function formatDeadline(deadline: string | null): string {
 }
 
 type Props = {
-  criteria: CriterionData[]
   opportunities: OpportunityItem[]
   isExampleOpportunities: boolean
   loading: boolean
@@ -36,47 +44,29 @@ type Props = {
 }
 
 export default function CriteriaOpportunityPanels({
-  criteria, opportunities, isExampleOpportunities, loading, lastScannedAt, onApplied, onIgnore, onError,
+  opportunities, isExampleOpportunities, loading, lastScannedAt, onApplied, onIgnore, onError,
 }: Props) {
   const [pending, setPending] = useState<Set<string>>(new Set())
-  const [collapsedManually, setCollapsedManually] = useState<Set<string>>(new Set())
-  const [expandedManually, setExpandedManually] = useState<Set<string>>(new Set())
 
-  const byCriterion: Record<string, OpportunityItem[]> = {}
-  for (const opp of opportunities) {
-    const key = opp.criterion ?? '__none__'
-    if (!byCriterion[key]) byCriterion[key] = []
-    byCriterion[key].push(opp)
-  }
-
-  function isExpanded(criterion: string, openCount: number) {
-    if (collapsedManually.has(criterion)) return false
-    if (expandedManually.has(criterion)) return true
-    return openCount > 0
-  }
-
-  function togglePanel(criterion: string, currentlyExpanded: boolean) {
-    if (currentlyExpanded) {
-      setCollapsedManually(prev => new Set(Array.from(prev).concat(criterion)))
-      setExpandedManually(prev => { const s = new Set(prev); s.delete(criterion); return s })
-    } else {
-      setExpandedManually(prev => new Set(Array.from(prev).concat(criterion)))
-      setCollapsedManually(prev => { const s = new Set(prev); s.delete(criterion); return s })
-    }
-  }
+  const openOpps = opportunities
+    .filter(o => !o.applied)
+    .sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0))
+  const appliedCount = opportunities.filter(o => o.applied).length
+  const visible = openOpps.slice(0, MAX_VISIBLE)
+  const hiddenCount = openOpps.length - visible.length
 
   async function handleApply(opp: OpportunityItem) {
     if (pending.has(opp.id)) return
     setPending(prev => new Set(Array.from(prev).concat(opp.id)))
     if (opp.url) window.open(opp.url, '_blank', 'noopener,noreferrer')
-    else onError('No link available')
+    else onError('No application link available for this opportunity')
     try {
       const res = await fetch(`/api/dashboard/opportunities/${opp.id}/outcome`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'pending' }),
       })
-      if (!res.ok) { const e = await res.json(); onError(e.error ?? 'Failed'); }
+      if (!res.ok) { const e = await res.json(); onError(e.error ?? 'Failed to mark as applied') }
       else onApplied(opp.id)
     } catch { onError('Failed to mark as applied') }
     finally { setPending(prev => { const s = new Set(prev); s.delete(opp.id); return s }) }
@@ -93,36 +83,42 @@ export default function CriteriaOpportunityPanels({
 
   if (loading) {
     return (
-      <div className="card p-5 space-y-2">
-        <div className="skeleton h-5 w-36 mb-4" />
-        {[1, 2, 3].map(i => <div key={i} className="skeleton h-12 rounded-xl" />)}
-      </div>
-    )
-  }
-
-  if (criteria.length === 0) {
-    return (
-      <div className="card p-5 flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No criteria selected.</p>
-        <Link href="/dashboard/profile" className="mt-2 text-xs" style={{ color: 'var(--accent)' }}>
-          Set your focus in Profile →
-        </Link>
+      <div className="card p-5 space-y-3">
+        <div className="skeleton h-5 w-48 mb-2" />
+        {[1, 2, 3].map(i => <div key={i} className="skeleton h-24 rounded-xl" />)}
       </div>
     )
   }
 
   return (
     <div className="card p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Opportunities by Criterion</h2>
-        {lastScannedAt && (
-          <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <Clock size={10} />
-            {new Date(lastScannedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-          </span>
-        )}
+      {/* Header */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Recommended Opportunities
+          </h2>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+            {openOpps.length > 0
+              ? `${openOpps.length} open · ranked by fit with your case`
+              : 'Discover real opportunities matched to your gaps'}
+            {appliedCount > 0 && ` · ${appliedCount} applied`}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {lastScannedAt && (
+            <span className="hidden sm:flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              <Clock size={10} />
+              {new Date(lastScannedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            </span>
+          )}
+          <Link href="/dashboard/opportunities" className="btn-ghost text-xs">
+            View all <ArrowRight size={11} />
+          </Link>
+        </div>
       </div>
 
+      {/* Example banner */}
       {isExampleOpportunities && (
         <div
           className="mb-4 flex items-start gap-2.5 rounded-lg px-3.5 py-3 text-xs"
@@ -136,155 +132,154 @@ export default function CriteriaOpportunityPanels({
         </div>
       )}
 
-      <div className="space-y-1.5">
-        {criteria.map(c => {
-          const opps = byCriterion[c.criterion] ?? []
-          const openOpps = opps.filter(o => !o.applied)
-          const appliedOpps = opps.filter(o => o.applied)
-          const expanded = isExpanded(c.criterion, openOpps.length)
-          const accentColor = CRITERION_COLORS[c.criterion] ?? 'var(--accent)'
+      {/* List */}
+      {openOpps.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+            {appliedCount > 0 ? "You're all caught up" : 'No open opportunities yet'}
+          </p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Run a scan to discover opportunities matching your criteria gaps
+          </p>
+          <ScanButton redirectTo="/dashboard/opportunities" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {visible.map(opp => {
+            const criterionColor = opp.criterion ? (CRITERION_COLORS[opp.criterion] ?? 'var(--accent)') : null
+            const score = opp.priority_score != null ? Math.round(opp.priority_score) : null
+            const modeBadge = getModeBadge(opp.delivery_mode)
+            const isPending = pending.has(opp.id)
 
-          return (
-            <div
-              key={c.criterion}
-              className="overflow-hidden rounded-xl transition-all"
-              style={{ border: '1px solid var(--border)' }}
-            >
-              {/* Header */}
-              <button
-                onClick={() => togglePanel(c.criterion, expanded)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
-                style={{ background: expanded ? 'var(--bg-raised)' : 'var(--bg-surface)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-raised)' }}
-                onMouseLeave={e => { if (!expanded) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)' }}
+            return (
+              <div
+                key={opp.id}
+                className="rounded-xl p-4 transition-opacity"
+                style={{
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-surface)',
+                  opacity: isPending ? 0.5 : 1,
+                  pointerEvents: isPending ? 'none' : 'auto',
+                }}
               >
-                <div
-                  className="h-2 w-2 rounded-full flex-shrink-0"
-                  style={{ background: accentColor }}
-                />
-                <span className="flex-1 text-left text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {c.label}
-                </span>
-                <div className="flex items-center gap-2">
-                  {openOpps.length > 0 && (
-                    <span className="badge badge-green">{openOpps.length} open</span>
-                  )}
-                  {appliedOpps.length > 0 && (
-                    <span className="badge badge-muted">{appliedOpps.length} applied</span>
-                  )}
-                  {openOpps.length === 0 && appliedOpps.length === 0 && (
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>0 open</span>
-                  )}
-                  <ChevronRight
-                    size={13}
-                    style={{
-                      color: 'var(--text-muted)',
-                      transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.15s ease',
-                    }}
-                  />
-                </div>
-              </button>
-
-              {/* Body */}
-              {expanded && (
-                <div style={{ borderTop: '1px solid var(--border)' }}>
-                  {opps.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center gap-3">
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No opportunities yet</p>
-                      <ScanButton redirectTo="/dashboard/opportunities" />
-                    </div>
-                  ) : (
-                    <>
-                      {openOpps.map((opp, idx) => (
-                        <div
-                          key={opp.id}
-                          className="flex items-start gap-3 px-4 py-3"
+                <div className="flex items-start gap-4">
+                  <div className="flex-1 min-w-0 space-y-2.5">
+                    {/* Badges */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="badge badge-muted">{TYPE_LABELS[opp.type] ?? opp.type}</span>
+                      {opp.criterion && (
+                        <span
+                          className="badge"
                           style={{
-                            borderTop: idx > 0 ? '1px solid var(--border-subtle)' : 'none',
+                            background: `${criterionColor}15`,
+                            color: criterionColor ?? 'var(--text-muted)',
+                            border: `1px solid ${criterionColor}30`,
                           }}
                         >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                {opp.title}
-                              </span>
-                              {opp.urgency === 'urgent' && (
-                                <span className="badge badge-red">Urgent</span>
-                              )}
-                              {opp.urgency === 'soon' && (
-                                <span className="badge badge-amber">Soon</span>
-                              )}
-                            </div>
-                            {opp.description && (
-                              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                                {opp.description}
-                              </p>
-                            )}
-                            {opp.deadline && (
-                              <p className="mt-1 flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                <Clock size={10} />
-                                Due {formatDeadline(opp.deadline)}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex flex-shrink-0 flex-col gap-1.5">
-                            <button
-                              onClick={() => handleApply(opp)}
-                              disabled={pending.has(opp.id)}
-                              className="btn-primary text-xs px-3 py-1.5"
-                            >
-                              Apply <ExternalLink size={10} />
-                            </button>
-                            <button
-                              onClick={() => handleIgnore(opp.id)}
-                              disabled={pending.has(opp.id)}
-                              className="btn-ghost justify-center text-xs px-3 py-1.5"
-                            >
-                              <X size={10} /> Skip
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-
-                      {appliedOpps.length > 0 && (
-                        <>
-                          <div
-                            className="px-4 py-2"
-                            style={{ background: 'var(--bg-raised)', borderTop: '1px solid var(--border)' }}
-                          >
-                            <span className="section-header">Applied</span>
-                          </div>
-                          {appliedOpps.map((opp, idx) => (
-                            <div
-                              key={opp.id}
-                              className="flex items-center gap-3 px-4 py-2.5"
-                              style={{
-                                opacity: 0.65,
-                                borderTop: idx > 0 ? '1px solid var(--border-subtle)' : '1px solid var(--border)',
-                              }}
-                            >
-                              <CheckCircle2 size={13} style={{ color: 'var(--green)', flexShrink: 0 }} />
-                              <span className="flex-1 min-w-0 truncate text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                                {opp.title}
-                              </span>
-                              {opp.deadline && (
-                                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                  {formatDeadline(opp.deadline)}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </>
+                          {CRITERION_LABELS[opp.criterion as CriterionType] ?? opp.criterion}
+                        </span>
                       )}
-                    </>
-                  )}
+                      <span className={`badge ${modeBadge.classes}`}>{modeBadge.label}</span>
+                      {opp.urgency === 'urgent' && (
+                        <span
+                          className="badge"
+                          style={{ background: 'rgba(234,88,12,0.1)', color: 'var(--c-critical_role)', border: '1px solid rgba(234,88,12,0.25)' }}
+                        >
+                          Urgent
+                        </span>
+                      )}
+                      {opp.urgency === 'soon' && <span className="badge badge-amber">Soon</span>}
+                      {score != null && score > 0 && (
+                        <span
+                          className="ml-auto flex items-center gap-1 text-[11px] font-bold tabular-nums"
+                          style={{ color: score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--text-muted)' }}
+                          title="Priority score"
+                        >
+                          <Star size={9} />
+                          {score}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="text-sm font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
+                      {opp.title}
+                    </h3>
+
+                    {/* Description */}
+                    {opp.description && (
+                      <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--text-muted)' }}>
+                        {opp.description}
+                      </p>
+                    )}
+
+                    {/* Meta */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <span className="flex items-center gap-1">
+                        {opp.is_us ? <MapPin size={11} /> : <Globe size={11} />}
+                        {countryLabel(opp)}
+                      </span>
+                      {opp.deadline && (
+                        <span className="flex items-center gap-1">
+                          <Clock size={11} />
+                          Due {formatDeadline(opp.deadline)}
+                        </span>
+                      )}
+                      {opp.url && (
+                        <a
+                          href={opp.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          View details <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-shrink-0 flex-col gap-1.5">
+                    <button
+                      onClick={() => handleApply(opp)}
+                      disabled={isPending}
+                      className="btn-primary text-xs px-3 py-1.5"
+                    >
+                      Apply <ExternalLink size={10} />
+                    </button>
+                    <button
+                      onClick={() => handleIgnore(opp.id)}
+                      disabled={isPending}
+                      className="btn-ghost justify-center text-xs px-3 py-1.5"
+                    >
+                      <X size={10} /> Skip
+                    </button>
+                  </div>
                 </div>
-              )}
+              </div>
+            )
+          })}
+
+          {/* More link */}
+          {hiddenCount > 0 && (
+            <Link
+              href="/dashboard/opportunities"
+              className="flex items-center justify-center gap-1 rounded-xl py-3 text-xs font-medium transition-colors"
+              style={{ border: '1px dashed var(--border)', color: 'var(--text-secondary)' }}
+            >
+              View {hiddenCount} more {hiddenCount === 1 ? 'opportunity' : 'opportunities'} <ArrowRight size={12} />
+            </Link>
+          )}
+
+          {appliedCount > 0 && (
+            <div className="flex items-center justify-center gap-1.5 pt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              <CheckCircle2 size={12} style={{ color: 'var(--green)' }} />
+              {appliedCount} already applied
             </div>
-          )
-        })}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

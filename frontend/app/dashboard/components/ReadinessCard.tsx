@@ -19,7 +19,7 @@ type ReadinessData = {
 function readinessColor(score: number): string {
   if (score >= 70) return 'var(--green)'
   if (score >= 40) return 'var(--amber)'
-  return 'var(--red)'
+  return 'var(--c-critical_role)' // warm coral — gentler than alarm red
 }
 
 function readinessLabel(score: number): string {
@@ -92,7 +92,7 @@ export default function ReadinessCard() {
                 <p
                   className="text-[10px]"
                   style={{
-                    color: data.days_until_filing <= 30 ? 'var(--red)'
+                    color: data.days_until_filing <= 30 ? 'var(--c-critical_role)'
                       : data.days_until_filing <= 90 ? 'var(--amber)'
                       : 'var(--text-muted)',
                   }}

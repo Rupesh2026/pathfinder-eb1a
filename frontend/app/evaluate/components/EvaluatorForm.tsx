@@ -53,13 +53,13 @@ function RadioGroup({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
-            padding: '10px 14px',
-            borderRadius: 8,
-            border: `1px solid ${value === opt.value ? 'var(--accent-border)' : 'var(--border)'}`,
+            gap: 11,
+            padding: '11px 15px',
+            borderRadius: 10,
+            border: `1px solid ${value === opt.value ? 'var(--accent-border)' : 'var(--border-strong)'}`,
             background: value === opt.value ? 'var(--accent-subtle)' : 'var(--bg-surface)',
             cursor: 'pointer',
-            transition: 'all 0.12s ease',
+            transition: 'all 0.15s ease',
           }}
         >
           <input
@@ -68,9 +68,9 @@ function RadioGroup({
             value={opt.value}
             checked={value === opt.value}
             onChange={() => onChange(opt.value)}
-            style={{ accentColor: 'var(--accent)' }}
+            style={{ accentColor: 'var(--accent)', width: 15, height: 15, flexShrink: 0 }}
           />
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: value === opt.value ? 500 : 400 }}>
+          <span style={{ fontSize: 13.5, color: 'var(--text-secondary)', fontWeight: value === opt.value ? 500 : 400, letterSpacing: '-0.01em' }}>
             {opt.label}
           </span>
         </label>
@@ -98,13 +98,13 @@ function CheckGroup({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
-              padding: '10px 14px',
-              borderRadius: 8,
-              border: `1px solid ${checked ? 'var(--accent-border)' : 'var(--border)'}`,
+              gap: 11,
+              padding: '11px 15px',
+              borderRadius: 10,
+              border: `1px solid ${checked ? 'var(--accent-border)' : 'var(--border-strong)'}`,
               background: checked ? 'var(--accent-subtle)' : 'var(--bg-surface)',
               cursor: 'pointer',
-              transition: 'all 0.12s ease',
+              transition: 'all 0.15s ease',
             }}
           >
             <input
@@ -114,9 +114,8 @@ function CheckGroup({
                 if (checked) onChange(values.filter(v => v !== opt.value))
                 else onChange([...values, opt.value])
               }}
-              style={{ accentColor: 'var(--accent)' }}
             />
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: checked ? 500 : 400 }}>
+            <span style={{ fontSize: 13.5, color: 'var(--text-secondary)', fontWeight: checked ? 500 : 400, letterSpacing: '-0.01em' }}>
               {opt.label}
             </span>
           </label>
@@ -143,42 +142,35 @@ function Toggle({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 14px',
-        borderRadius: 8,
-        border: `1px solid ${value ? 'var(--accent-border)' : 'var(--border)'}`,
+        padding: '14px 16px',
+        borderRadius: 12,
+        border: `1px solid ${value ? 'var(--accent-border)' : 'var(--border-strong)'}`,
         background: value ? 'var(--accent-subtle)' : 'var(--bg-surface)',
         cursor: 'pointer',
-        transition: 'all 0.12s ease',
-        gap: 12,
+        transition: 'all 0.15s ease',
+        gap: 16,
       }}
       onClick={() => onChange(!value)}
     >
       <div>
-        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{label}</div>
-        {helper && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{helper}</div>}
+        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{label}</div>
+        {helper && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3, letterSpacing: '-0.01em' }}>{helper}</div>}
       </div>
       <div
         style={{
-          width: 40,
-          height: 22,
-          borderRadius: 11,
+          width: 42, height: 24, borderRadius: 12,
           background: value ? 'var(--accent)' : 'var(--bg-overlay)',
-          position: 'relative',
-          flexShrink: 0,
-          transition: 'background 0.2s',
+          position: 'relative', flexShrink: 0,
+          transition: 'background 0.2s ease',
+          boxShadow: value ? '0 2px 8px rgba(232,100,58,0.3)' : 'none',
         }}
       >
         <div
           style={{
-            width: 16,
-            height: 16,
-            borderRadius: '50%',
-            background: 'white',
-            position: 'absolute',
-            top: 3,
-            left: value ? 21 : 3,
-            transition: 'left 0.2s',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            width: 18, height: 18, borderRadius: '50%', background: 'white',
+            position: 'absolute', top: 3, left: value ? 21 : 3,
+            transition: 'left 0.2s ease',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
           }}
         />
       </div>
@@ -299,29 +291,34 @@ export default function EvaluatorForm({ onSubmit, submitting }: Props) {
   const progress = (step / TOTAL_STEPS) * 100
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* Progress */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>
+      <div
+        style={{
+          background: 'var(--bg-surface)', border: '1px solid var(--border)',
+          borderRadius: 14, padding: '18px 20px', boxShadow: 'var(--shadow-sm)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', letterSpacing: '-0.01em' }}>
             Step {step} of {TOTAL_STEPS} — {STEP_TITLES[step - 1]}
           </span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{Math.round(progress)}%</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '-0.01em' }}>{Math.round(progress)}%</span>
         </div>
         <div className="progress-track">
           <div
             className="progress-fill"
-            style={{ width: `${progress}%`, background: 'var(--accent)', transition: 'width 0.3s ease' }}
+            style={{ width: `${progress}%`, background: 'var(--accent)', transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
           />
         </div>
-        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6, letterSpacing: '-0.01em' }}>
           {STEP_HELPERS[step - 1]}
         </p>
       </div>
 
       {/* Step content */}
-      <div className="card" style={{ padding: '24px 20px' }}>
+      <div className="card" style={{ padding: '28px 24px' }}>
 
         {/* ── Step 1: Who You Are ── */}
         {step === 1 && (
@@ -837,14 +834,14 @@ export default function EvaluatorForm({ onSubmit, submitting }: Props) {
       {errors.length > 0 && (
         <div
           style={{
-            padding: '12px 16px',
+            padding: '14px 18px',
             background: 'var(--red-subtle)',
             border: '1px solid var(--red-border)',
-            borderRadius: 8,
+            borderRadius: 12,
           }}
         >
           {errors.map(e => (
-            <p key={e} style={{ margin: 0, fontSize: 13, color: 'var(--red)' }}>{e}</p>
+            <p key={e} style={{ margin: 0, fontSize: 13.5, color: 'var(--red)', letterSpacing: '-0.01em' }}>{e}</p>
           ))}
         </div>
       )}
@@ -852,17 +849,31 @@ export default function EvaluatorForm({ onSubmit, submitting }: Props) {
       {/* Navigation */}
       <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>
         {step > 1 ? (
-          <button className="btn-secondary" onClick={back} disabled={submitting}>
+          <button
+            className="btn-secondary"
+            onClick={back}
+            disabled={submitting}
+            style={{ letterSpacing: '-0.01em' }}
+          >
             ← Back
           </button>
         ) : (
           <div />
         )}
         <button
-          className="btn-primary"
           onClick={next}
           disabled={submitting}
-          style={{ minWidth: 160 }}
+          style={{
+            minWidth: 180, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '11px 24px',
+            background: submitting ? 'var(--bg-raised)' : 'var(--accent)',
+            color: submitting ? 'var(--text-muted)' : 'white',
+            border: 'none', borderRadius: 12,
+            fontSize: 14, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer',
+            letterSpacing: '-0.02em',
+            boxShadow: submitting ? 'none' : '0 4px 16px rgba(232,100,58,0.28)',
+            transition: 'all 0.15s ease',
+          }}
         >
           {submitting
             ? 'Submitting…'

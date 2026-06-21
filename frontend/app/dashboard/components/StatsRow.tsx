@@ -6,8 +6,7 @@ import { TrendingUp, Award, Clock, Target } from 'lucide-react'
 function strengthColor(pct: number): string {
   if (pct >= 65) return 'var(--green)'
   if (pct >= 40) return 'var(--amber)'
-  if (pct >= 20) return 'var(--c-critical_role)'
-  return 'var(--red)'
+  return 'var(--c-critical_role)' // warm coral for low scores — easier on the eyes than red
 }
 
 function daysUntil(dateStr: string): number {
@@ -73,7 +72,7 @@ function StatCard({ label, value, sub, color, icon, loading, highlight }: StatCa
 export default function StatsRow({ summary, loading, targetFilingDate }: Props) {
   const filingDays = targetFilingDate ? daysUntil(targetFilingDate) : null
   const filingColor = filingDays == null ? 'var(--text-muted)'
-    : filingDays <= 30  ? 'var(--red)'
+    : filingDays <= 30  ? 'var(--c-critical_role)'
     : filingDays <= 90  ? 'var(--amber)'
     : 'var(--text-primary)'
 

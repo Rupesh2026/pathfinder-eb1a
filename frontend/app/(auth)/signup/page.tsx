@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { signUp } from '@/app/actions/auth'
-import { Check } from 'lucide-react'
+import { Check, ArrowRight } from 'lucide-react'
 
 function SignUpForm() {
   const searchParams = useSearchParams()
@@ -28,27 +28,44 @@ function SignUpForm() {
     if (result?.error) { setError(result.error); setLoading(false) }
   }
 
+  const labelStyle = {
+    display: 'block', fontSize: 13, fontWeight: 500,
+    color: 'var(--text-secondary)', marginBottom: 7, letterSpacing: '-0.01em',
+  } as const
+
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: 'var(--bg-page)' }}>
+    <div
+      className="flex min-h-screen items-center justify-center px-4 py-12"
+      style={{ background: 'var(--bg-page)' }}
+    >
       <div
         className="pointer-events-none fixed inset-0"
-        style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(99,102,241,0.08) 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(ellipse 70% 50% at 50% -5%, rgba(232,100,58,0.07) 0%, transparent 65%)' }}
       />
 
       <div className="relative w-full max-w-sm animate-slide-up">
         {/* Logo */}
-        <div className="mb-8 flex flex-col items-center gap-3">
+        <div className="mb-10 flex flex-col items-center gap-4">
           <div
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white text-sm font-bold"
-            style={{ background: 'var(--accent)', boxShadow: '0 0 24px rgba(99,102,241,0.4)' }}
+            style={{
+              width: 44, height: 44, borderRadius: 13, background: 'var(--accent)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, fontWeight: 800, color: 'white',
+              boxShadow: '0 6px 24px rgba(232,100,58,0.32)',
+            }}
           >
             P
           </div>
           <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            <h1
+              style={{
+                fontSize: 22, fontWeight: 800, color: 'var(--text-primary)',
+                letterSpacing: '-0.04em', margin: '0 0 5px',
+              }}
+            >
               Start your case
             </h1>
-            <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0, letterSpacing: '-0.01em' }}>
               {prefillEmail
                 ? 'Create your account to unlock your full roadmap'
                 : 'Create your Pathfinder account'}
@@ -56,24 +73,36 @@ function SignUpForm() {
           </div>
         </div>
 
-        <div className="card p-6">
+        {/* Main card */}
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 18,
+            padding: '32px 28px',
+            boxShadow: 'var(--shadow-md)',
+          }}
+        >
           {error && (
             <div
-              className="mb-4 rounded-lg px-4 py-3 text-xs"
-              style={{ background: 'var(--red-subtle)', color: 'var(--red)', border: '1px solid var(--red-border)' }}
+              style={{
+                marginBottom: 20, padding: '12px 16px',
+                background: 'var(--red-subtle)', color: 'var(--red)',
+                border: '1px solid var(--red-border)', borderRadius: 10,
+                fontSize: 13.5, letterSpacing: '-0.01em',
+              }}
             >
               {error}
             </div>
           )}
 
-          <form action={handleSubmit} className="space-y-4">
-            {/* Hidden field for conversion tracking */}
+          <form action={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {assessmentId && (
               <input type="hidden" name="assessment_id" value={assessmentId} />
             )}
 
             <div>
-              <label htmlFor="email" className="label">Email address</label>
+              <label htmlFor="email" style={labelStyle}>Email address</label>
               <input
                 id="email"
                 name="email"
@@ -83,13 +112,14 @@ function SignUpForm() {
                 autoFocus={!prefillEmail}
                 placeholder="you@example.com"
                 className="input"
+                style={{ fontSize: 14 }}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="label">Password</label>
+              <label htmlFor="password" style={labelStyle}>Password</label>
               <input
                 id="password"
                 name="password"
@@ -99,12 +129,13 @@ function SignUpForm() {
                 autoComplete="new-password"
                 placeholder="Min. 8 characters"
                 className="input"
+                style={{ fontSize: 14 }}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
               />
               {password.length > 0 && (
-                <div className="mt-1.5 flex items-center gap-1.5">
-                  <div className="flex-1 progress-track">
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="progress-track" style={{ flex: 1 }}>
                     <div
                       className="progress-fill"
                       style={{
@@ -113,16 +144,16 @@ function SignUpForm() {
                       }}
                     />
                   </div>
-                  <span className="text-[10px]" style={{ color: passwordStrong ? 'var(--green)' : 'var(--text-muted)' }}>
-                    {passwordStrong ? 'Good' : 'Too short'}
+                  <span style={{ fontSize: 11, color: passwordStrong ? 'var(--green)' : 'var(--text-muted)', letterSpacing: '-0.01em' }}>
+                    {passwordStrong ? 'Strong' : 'Too short'}
                   </span>
                 </div>
               )}
             </div>
 
             <div>
-              <label htmlFor="confirm" className="label">Confirm password</label>
-              <div className="relative">
+              <label htmlFor="confirm" style={labelStyle}>Confirm password</label>
+              <div style={{ position: 'relative' }}>
                 <input
                   id="confirm"
                   name="confirm"
@@ -131,13 +162,21 @@ function SignUpForm() {
                   minLength={8}
                   autoComplete="new-password"
                   placeholder="Repeat password"
-                  className="input pr-9"
+                  className="input"
+                  style={{ fontSize: 14, paddingRight: 40 }}
                   value={confirm}
                   onChange={e => setConfirm(e.target.value)}
                 />
                 {passwordsMatch && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Check size={14} style={{ color: 'var(--green)' }} />
+                  <div
+                    style={{
+                      position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                      width: 20, height: 20, borderRadius: '50%',
+                      background: 'var(--green-subtle)', border: '1px solid var(--green-border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Check size={11} style={{ color: 'var(--green)' }} />
                   </div>
                 )}
               </div>
@@ -146,7 +185,17 @@ function SignUpForm() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full justify-center py-2.5 text-sm"
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: 8, padding: '12px 20px',
+                background: loading ? 'var(--bg-raised)' : 'var(--accent)',
+                color: loading ? 'var(--text-muted)' : 'white',
+                border: loading ? '1px solid var(--border)' : 'none',
+                borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+                letterSpacing: '-0.02em',
+                boxShadow: loading ? 'none' : '0 4px 16px rgba(232,100,58,0.28)',
+                transition: 'all 0.15s ease',
+              }}
             >
               {loading ? 'Creating account…' : 'Create account'}
             </button>
@@ -155,10 +204,18 @@ function SignUpForm() {
 
         {/* Feature highlights */}
         <div
-          className="mt-4 rounded-xl p-4"
-          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+          style={{
+            marginTop: 16, borderRadius: 14, padding: '18px 20px',
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-sm)',
+          }}
         >
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          <p
+            style={{
+              marginBottom: 12, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.06em', color: 'var(--text-muted)',
+            }}
+          >
             What you get
           </p>
           {[
@@ -167,22 +224,28 @@ function SignUpForm() {
             'USCIS precedent-informed scoring',
             'Recommendation letter tracker',
           ].map(f => (
-            <div key={f} className="flex items-center gap-2 py-1">
-              <div className="flex h-4 w-4 items-center justify-center rounded-full flex-shrink-0" style={{ background: 'var(--green-subtle)' }}>
+            <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 8 }}>
+              <div
+                style={{
+                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--green-subtle)', border: '1px solid var(--green-border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
                 <Check size={9} style={{ color: 'var(--green)' }} />
               </div>
-              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{f}</span>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', letterSpacing: '-0.01em' }}>{f}</span>
             </div>
           ))}
         </div>
 
-        <p className="mt-5 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+        <p style={{ marginTop: 24, textAlign: 'center', fontSize: 13.5, color: 'var(--text-muted)', letterSpacing: '-0.01em' }}>
           Already have an account?{' '}
-          <Link href="/signin" className="font-medium" style={{ color: 'var(--accent-hover)' }}>
+          <Link href="/signin" style={{ fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
             Sign in
           </Link>
           {' · '}
-          <Link href="/evaluate" className="font-medium" style={{ color: 'var(--accent-hover)' }}>
+          <Link href="/evaluate" style={{ fontWeight: 500, color: 'var(--text-muted)', textDecoration: 'none' }}>
             Free evaluator
           </Link>
         </p>

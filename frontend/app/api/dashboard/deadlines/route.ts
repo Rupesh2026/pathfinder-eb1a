@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { todayISO } from '@/lib/opportunity-visibility'
 
 export async function GET() {
   const supabase = await createClient()
@@ -21,6 +22,8 @@ export async function GET() {
     .eq('dismissed', false)
     .eq('applied', false)
     .not('deadline', 'is', null)
+    // Upcoming only — never list a deadline that has already passed.
+    .gte('deadline', todayISO())
     .order('deadline', { ascending: true })
     .limit(5)
 

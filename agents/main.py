@@ -177,7 +177,8 @@ async def run_daily_agents_for_user(user_id: str) -> None:
         if profile_context:
             disc_message += f"\nUser profile:\n{profile_context}\n"
         disc_message += (
-            "\nDiscover real, currently-open EB-1A opportunities WORLDWIDE for these criteria, "
+            "\nDiscover real, currently-open EB-1A opportunities WORLDWIDE for these criteria "
+            "whose application deadline is today or later (never past deadlines), "
             "tag each with country and mode, and write them with write_opportunities."
         )
         disc_summary = await _run_single_agent(build_discovery_agent(user_id), user_id, disc_message)

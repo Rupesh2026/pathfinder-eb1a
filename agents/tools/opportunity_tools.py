@@ -1,3 +1,5 @@
+from datetime import date
+
 from tools.db import get_db
 
 VALID_MODES = ("online", "in_person", "hybrid")
@@ -106,6 +108,32 @@ def is_visible(is_us: bool, mode: str) -> bool:
     return bool(is_us) or normalize_mode(mode) != "in_person"
 
 
+def normalize_deadline(raw, today: date | None = None) -> tuple[str | None, bool]:
+    """Return (iso_deadline_or_none, is_expired) for a raw deadline value.
+
+    The opportunities.deadline column is a DATE; we only ever store an ISO
+    ``YYYY-MM-DD`` string or NULL. This coerces whatever the agent produced:
+      - empty / unparseable  -> (None, False)  treated as undated (rolling), kept.
+      - a valid date < today -> (iso, True)     expired, caller should drop it.
+      - a valid date >= today-> (iso, False)    future or due today, kept.
+
+    Coercing unparseable values to None (instead of passing them through) also
+    prevents a malformed string like "June 2026" from erroring the batch insert.
+    """
+    today = today or date.today()
+    if not raw:
+        return None, False
+    s = str(raw).strip()
+    if not s or s.lower() in ("null", "none", "n/a", "tbd", "rolling", "ongoing"):
+        return None, False
+    try:
+        d = date.fromisoformat(s[:10])
+    except ValueError:
+        # Unknown format — keep as undated rather than risk a bad DB write.
+        return None, False
+    return d.isoformat(), d < today
+
+
 def read_existing_opportunity_titles(user_id: str) -> list[str]:
     """Return lowercase titles of all opportunities for this user."""
     rows = (
@@ -155,6 +183,8 @@ def write_opportunities(user_id: str, opps: list[dict]) -> dict:
     to_insert: list[dict] = []
     updated = 0
     skipped = 0
+    expired = 0
+    today = date.today()
 
     for o in opps:
         title = (o.get("title") or "").strip()
@@ -164,6 +194,14 @@ def write_opportunities(user_id: str, opps: list[dict]) -> dict:
 
         if not title:
             skipped += 1
+            continue
+
+        # Date gate: never store an opportunity whose application deadline has
+        # already passed — it only wastes the user's attention. Undated (rolling)
+        # opportunities have deadline_norm = None and are kept.
+        deadline_norm, is_expired = normalize_deadline(o.get("deadline"), today)
+        if is_expired:
+            expired += 1
             continue
 
         # Intra-batch dedup
@@ -177,8 +215,8 @@ def write_opportunities(user_id: str, opps: list[dict]) -> dict:
         if url_key and url_key in by_url:
             # Refresh latest info on the existing row
             patch: dict = {}
-            if o.get("deadline"):
-                patch["deadline"] = o["deadline"]
+            if deadline_norm:
+                patch["deadline"] = deadline_norm
             if o.get("description"):
                 patch["description"] = o["description"]
             if patch:
@@ -203,7 +241,7 @@ def write_opportunities(user_id: str, opps: list[dict]) -> dict:
             "title": title,
             "description": o.get("description"),
             "url": url or None,
-            "deadline": o.get("deadline"),
+            "deadline": deadline_norm,
             "criterion": o.get("criterion"),
             "country": country,
             "is_us": is_us,
@@ -226,11 +264,19 @@ def write_opportunities(user_id: str, opps: list[dict]) -> dict:
         "inserted": len(to_insert),
         "updated": updated,
         "skipped": skipped,
+        "expired": expired,
     }
 
 
 def read_opportunities(user_id: str) -> list[dict]:
-    """Return all open (not dismissed, not applied) opportunities ordered by priority_score desc."""
+    """Return all open, non-expired opportunities ordered by priority_score desc.
+
+    Open = not dismissed and not applied. Non-expired = deadline is in the future
+    (today or later) OR has no deadline (rolling). This keeps prioritization, the
+    coach's daily plan, and the dashboard focused on opportunities the user can
+    still act on — even ones whose deadline has lapsed since they were stored.
+    """
+    today = date.today().isoformat()
     return (
         get_db()
         .table("opportunities")
@@ -238,6 +284,7 @@ def read_opportunities(user_id: str) -> list[dict]:
         .eq("user_id", user_id)
         .eq("dismissed", False)
         .eq("applied", False)
+        .or_(f"deadline.is.null,deadline.gte.{today}")
         .order("priority_score", desc=True)
         .execute()
         .data

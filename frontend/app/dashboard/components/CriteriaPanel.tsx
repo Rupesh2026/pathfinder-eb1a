@@ -21,14 +21,14 @@ function scoreColor(score: number) {
   if (score >= 65) return 'var(--green)'
   if (score >= 40) return 'var(--amber)'
   if (score > 0)  return 'var(--c-critical_role)'
-  return 'var(--red)'
+  return 'var(--text-muted)' // empty criterion — neutral, not alarming red
 }
 
 function TierChip({ score }: { score: number }) {
   if (score >= 65) return <span className="badge badge-green">Strong</span>
   if (score >= 40) return <span className="badge badge-amber">Building</span>
   if (score > 0)  return <span className="badge" style={{ background: 'var(--amber-subtle)', color: 'var(--amber)', border: '1px solid var(--amber-border)' }}>Weak</span>
-  return <span className="badge badge-red">Gap</span>
+  return <span className="badge" style={{ background: 'var(--bg-overlay)', color: 'var(--text-secondary)', border: '1px solid var(--border-strong)' }}>No evidence</span>
 }
 
 type Props = { criteria: CriterionData[]; loading: boolean; focused?: boolean }
@@ -65,7 +65,7 @@ export default function CriteriaPanel({ criteria, loading, focused }: Props) {
           <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
             {focused ? `${criteria.length} focused criteria` : '10 EB-1A criteria'} ·{' '}
             <span style={{ color: 'var(--green)' }}>{strongCount} strong</span>
-            {gapCount > 0 && <span>, <span style={{ color: 'var(--red)' }}>{gapCount} critical gaps</span></span>}
+            {gapCount > 0 && <span>, <span style={{ color: 'var(--amber)' }}>{gapCount} need work</span></span>}
           </p>
         </div>
         <Link
@@ -80,7 +80,7 @@ export default function CriteriaPanel({ criteria, loading, focused }: Props) {
         {criteria.map((c) => {
           const accentColor = CRITERION_COLORS[c.criterion] ?? 'var(--accent)'
           const color = scoreColor(c.score)
-          const isCritical = c.score < 40
+          const needsWork = c.score < 40
 
           return (
             <Link
@@ -89,27 +89,19 @@ export default function CriteriaPanel({ criteria, loading, focused }: Props) {
               className="group relative flex flex-col gap-3 rounded-xl p-4 transition-all"
               style={{
                 background: 'var(--bg-raised)',
-                border: `1px solid ${isCritical ? 'var(--red-border)' : 'var(--border)'}`,
+                border: '1px solid var(--border)',
               }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement
-                el.style.borderColor = isCritical ? 'var(--red)' : accentColor + '50'
+                el.style.borderColor = accentColor + '50'
                 el.style.background = 'var(--bg-overlay)'
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLElement
-                el.style.borderColor = isCritical ? 'var(--red-border)' : 'var(--border)'
+                el.style.borderColor = 'var(--border)'
                 el.style.background = 'var(--bg-raised)'
               }}
             >
-              {/* Critical gap accent bar */}
-              {isCritical && (
-                <div
-                  className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl"
-                  style={{ background: 'var(--red)' }}
-                />
-              )}
-
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
                   {/* Criterion color dot */}
@@ -121,10 +113,10 @@ export default function CriteriaPanel({ criteria, loading, focused }: Props) {
                     {c.label}
                   </span>
                 </div>
-                {isCritical ? (
-                  <AlertCircle size={13} style={{ color: 'var(--red)', flexShrink: 0 }} />
-                ) : c.score >= 65 ? (
+                {c.score >= 65 ? (
                   <TrendingUp size={13} style={{ color: 'var(--green)', flexShrink: 0 }} />
+                ) : needsWork ? (
+                  <AlertCircle size={13} style={{ color: 'var(--amber)', flexShrink: 0 }} />
                 ) : (
                   <Minus size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 )}
