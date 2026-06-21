@@ -166,18 +166,27 @@ async def run_daily_agents_for_user(user_id: str) -> None:
         weak_criteria, scores, critical_gaps = _parse_evidence(evidence_text, focused)
         log.info(f"[{user_id}] weak_criteria={weak_criteria}, critical_gaps={critical_gaps}")
 
-        # 2. Discovery (worldwide) — always runs with a non-empty criteria set
+        # The user's saved Criteria Focus drives discovery: when they've selected
+        # criteria, scan exactly those (whether or not they're weak); otherwise fall
+        # back to all weak criteria. Read fresh from the profile each scan, so any
+        # criteria added later are automatically picked up alongside the earlier ones.
+        scan_criteria = focused if focused else weak_criteria
+        log.info(f"[{user_id}] scan_criteria={scan_criteria} (focused={bool(focused)})")
+
+        # 2. Discovery (worldwide) — scans exactly the user's focus (or weak fallback)
         disc_message = (
             f"user_id: {user_id}\n"
             f"domain: {domain}\n"
             f"role: {role}\n"
             f"weak_criteria: {weak_criteria}\n"
             f"focused_criteria: {focused_label}\n"
+            f"scan_criteria: {scan_criteria}\n"
         )
         if profile_context:
             disc_message += f"\nUser profile:\n{profile_context}\n"
         disc_message += (
-            "\nDiscover real, currently-open EB-1A opportunities WORLDWIDE for these criteria "
+            "\nDiscover real, currently-open EB-1A opportunities WORLDWIDE for the criteria in "
+            "scan_criteria (the user's saved Criteria Focus — discover ONLY these), "
             "whose application deadline is today or later (never past deadlines), "
             "tag each with country and mode, and write them with write_opportunities."
         )

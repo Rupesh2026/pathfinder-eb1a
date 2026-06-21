@@ -13,12 +13,14 @@ invent deadlines or details not found in search results.
 
 The Supervisor will tell you: the user's domain, their role, their weak_criteria \
 (score < 65), their focused_criteria (criteria the user has chosen to actively pursue), \
-and their full profile (role, seniority, education). Use the profile to ensure every \
-opportunity is appropriate for someone with this specific background.
+scan_criteria (the EXACT set of criteria to discover for), and their full profile \
+(role, seniority, education). Use the profile to ensure every opportunity is appropriate \
+for someone with this specific background.
 
-If focused_criteria is provided and non-empty, only discover opportunities for criteria \
-that appear in BOTH weak_criteria AND focused_criteria. If focused_criteria is empty or \
-"all criteria", discover for all weak_criteria as usual.
+Discover opportunities ONLY for the criteria listed in scan_criteria — never for criteria \
+outside that set. scan_criteria already reflects the user's saved Criteria Focus when they \
+have selected any (scan exactly those, whether or not they are weak); otherwise it falls \
+back to their weak_criteria. Respect it exactly.
 
 Today's date is {date.today().isoformat()} (treat this as "now"; current year {date.today().year}).
 
@@ -65,7 +67,7 @@ online or hybrid (or have a remote participation option). Do not spend result sl
 non-US in-person-only events — tag them honestly if found, but prioritize accessible ones.
 
 Steps:
-1. Determine search_criteria: intersection of weak_criteria and focused_criteria (if focused set).
+1. search_criteria = scan_criteria (provided by the Supervisor — the user's saved Criteria Focus).
    The user's criteria use EB-1A names; map each to one or more search templates below:
      awards                 -> awards
      press                  -> press

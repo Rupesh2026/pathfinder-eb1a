@@ -46,7 +46,9 @@ export default function OpportunityCard({ opportunity: opp }: Props) {
     startTransition(async () => { await dismissOpportunity(opp.id) })
   }
 
-  function handleApply() {
+  // "Mark as completed" — record that the user applied, moving this opportunity
+  // into the Applied bucket. (Applying itself happens via the Apply link below.)
+  function handleMarkComplete() {
     startTransition(async () => { await markApplied(opp.id) })
   }
 
@@ -145,28 +147,34 @@ export default function OpportunityCard({ opportunity: opp }: Props) {
                 Deadline: <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{opp.deadline}</span>
               </span>
             )}
-            {opp.url && (
-              <a
-                href={opp.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 transition-colors"
-                style={{ color: 'var(--accent)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent-hover)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
-              >
-                View <ExternalLink size={10} />
-              </a>
-            )}
           </div>
         </div>
 
         {/* Actions */}
         {!opp.applied && (
-          <div className="flex flex-shrink-0 flex-col gap-2">
-            <button onClick={handleApply} className="btn-primary text-xs px-3 py-1.5">
+          <div className="flex w-[150px] flex-shrink-0 flex-col gap-2">
+            {opp.url ? (
+              <a
+                href={opp.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary justify-center text-xs px-3 py-1.5"
+              >
+                Apply <ExternalLink size={12} />
+              </a>
+            ) : (
+              <button
+                disabled
+                title="No application link available"
+                className="btn-primary justify-center text-xs px-3 py-1.5"
+                style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              >
+                Apply
+              </button>
+            )}
+            <button onClick={handleMarkComplete} className="btn-secondary justify-center text-xs px-3 py-1.5">
               <CheckCircle size={12} />
-              Apply
+              Mark as completed
             </button>
             <button
               onClick={handleDismiss}

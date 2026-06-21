@@ -55,20 +55,20 @@ export default function CriteriaOpportunityPanels({
   const visible = openOpps.slice(0, MAX_VISIBLE)
   const hiddenCount = openOpps.length - visible.length
 
-  async function handleApply(opp: OpportunityItem) {
+  // Apply happens by opening the opportunity's link. "Mark as completed" records
+  // that the user applied, moving the opportunity into the Applied bucket.
+  async function handleMarkComplete(opp: OpportunityItem) {
     if (pending.has(opp.id)) return
     setPending(prev => new Set(Array.from(prev).concat(opp.id)))
-    if (opp.url) window.open(opp.url, '_blank', 'noopener,noreferrer')
-    else onError('No application link available for this opportunity')
     try {
       const res = await fetch(`/api/dashboard/opportunities/${opp.id}/outcome`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'pending' }),
       })
-      if (!res.ok) { const e = await res.json(); onError(e.error ?? 'Failed to mark as applied') }
+      if (!res.ok) { const e = await res.json(); onError(e.error ?? 'Failed to update') }
       else onApplied(opp.id)
-    } catch { onError('Failed to mark as applied') }
+    } catch { onError('Failed to mark as completed') }
     finally { setPending(prev => { const s = new Set(prev); s.delete(opp.id); return s }) }
   }
 
@@ -225,28 +225,36 @@ export default function CriteriaOpportunityPanels({
                           Due {formatDeadline(opp.deadline)}
                         </span>
                       )}
-                      {opp.url && (
-                        <a
-                          href={opp.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1"
-                          style={{ color: 'var(--accent)' }}
-                        >
-                          View details <ExternalLink size={10} />
-                        </a>
-                      )}
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-shrink-0 flex-col gap-1.5">
+                  <div className="flex w-[150px] flex-shrink-0 flex-col gap-1.5">
+                    {opp.url ? (
+                      <a
+                        href={opp.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-primary justify-center text-xs px-3 py-1.5"
+                      >
+                        Apply <ExternalLink size={10} />
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        title="No application link available"
+                        className="btn-primary justify-center text-xs px-3 py-1.5"
+                        style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                      >
+                        Apply
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleApply(opp)}
+                      onClick={() => handleMarkComplete(opp)}
                       disabled={isPending}
-                      className="btn-primary text-xs px-3 py-1.5"
+                      className="btn-secondary justify-center text-xs px-3 py-1.5"
                     >
-                      Apply <ExternalLink size={10} />
+                      <CheckCircle2 size={11} /> Mark as completed
                     </button>
                     <button
                       onClick={() => handleIgnore(opp.id)}

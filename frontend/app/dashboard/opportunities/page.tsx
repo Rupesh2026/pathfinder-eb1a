@@ -50,7 +50,7 @@ export default async function OpportunitiesPage({ searchParams }: Props) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('focused_criteria, scan_status, scan_completed_at')
+    .select('focused_criteria, scan_status, scan_finished_at')
     .eq('user_id', user!.id)
     .single()
 
@@ -122,7 +122,7 @@ export default async function OpportunitiesPage({ searchParams }: Props) {
         </div>
         <ScanButton
           initialStatus={profile?.scan_status}
-          initialFinishedAt={profile?.scan_completed_at}
+          initialFinishedAt={profile?.scan_finished_at}
           redirectTo="/dashboard/opportunities"
         />
       </div>

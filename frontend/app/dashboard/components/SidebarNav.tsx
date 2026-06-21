@@ -15,8 +15,8 @@ import {
 
 const PRIMARY_NAV = [
   { href: '/dashboard',               label: 'Dashboard',     icon: LayoutDashboard },
-  { href: '/dashboard/evidence',      label: 'Evidence',      icon: Shield },
   { href: '/dashboard/opportunities', label: 'Opportunities', icon: Compass },
+  { href: '/dashboard/evidence',      label: 'Evidence',      icon: Shield },
   { href: '/dashboard/advisor',       label: 'AI Advisor',    icon: MessageSquare },
 ]
 

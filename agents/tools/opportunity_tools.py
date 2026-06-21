@@ -269,26 +269,40 @@ def write_opportunities(user_id: str, opps: list[dict]) -> dict:
 
 
 def read_opportunities(user_id: str) -> list[dict]:
-    """Return all open, non-expired opportunities ordered by priority_score desc.
+    """Return open, non-expired, in-focus opportunities ordered by priority_score desc.
 
     Open = not dismissed and not applied. Non-expired = deadline is in the future
-    (today or later) OR has no deadline (rolling). This keeps prioritization, the
-    coach's daily plan, and the dashboard focused on opportunities the user can
-    still act on — even ones whose deadline has lapsed since they were stored.
+    (today or later) OR has no deadline (rolling). In-focus = criterion is in the
+    user's saved Criteria Focus (profiles.focused_criteria) when they've selected
+    any; when none are selected, all criteria are eligible. This keeps prioritization,
+    the coach's daily plan, and the dashboard aligned to exactly what the user chose
+    to pursue — and to opportunities they can still act on.
     """
+    db = get_db()
     today = date.today().isoformat()
-    return (
-        get_db()
-        .table("opportunities")
+
+    prof = (
+        db.table("profiles")
+        .select("focused_criteria")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+        .data
+    )
+    focused = (prof[0].get("focused_criteria") if prof else None) or []
+
+    query = (
+        db.table("opportunities")
         .select("*")
         .eq("user_id", user_id)
         .eq("dismissed", False)
         .eq("applied", False)
         .or_(f"deadline.is.null,deadline.gte.{today}")
-        .order("priority_score", desc=True)
-        .execute()
-        .data
     )
+    if focused:
+        query = query.in_("criterion", focused)
+
+    return query.order("priority_score", desc=True).execute().data
 
 
 def update_opportunity_scores(user_id: str, scores: list[dict]) -> dict:
