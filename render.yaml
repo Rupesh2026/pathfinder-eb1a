@@ -1,56 +1,122 @@
+# Render Blueprint — full EB-1A Agent System stack.
+# Deploy with: Render Dashboard → New → Blueprint → pick this repo.
+# Secrets marked `sync: false` are NOT stored in git — set them in the Render
+# dashboard (or the Blueprint sync prompt) after the first deploy.
+# See DEPLOY.md for the step-by-step guide and the secret checklist.
+
 services:
-  # ── Web service: FastAPI agent server ──────────────────────────────────────
+  # ── Web service: FastAPI agent server (Python / Google ADK) ─────────────────
   - type: web
     name: eb1a-agent-server
-    env: python
+    runtime: python
     rootDir: agents
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
     envVars:
-      # Supabase — service role key bypasses RLS (agents only, never frontend)
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # Supabase — service role key bypasses RLS (agents only, never the frontend)
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # LLM — choose gemini (AI Studio) or openai
+      # LLM provider: "openai" (gpt-4o-mini, default) or "gemini" (AI Studio)
       - key: LLM_PROVIDER
-        value: gemini
-      - key: GEMINI_API_KEY
+        value: openai
+      - key: OPENAI_API_KEY
         sync: false
-      # Optional: Vertex AI instead of AI Studio
-      - key: GOOGLE_CLOUD_PROJECT
+      - key: GEMINI_API_KEY        # only needed when LLM_PROVIDER=gemini
         sync: false
-      # Web search (Tavily)
+      - key: GOOGLE_CLOUD_PROJECT  # only needed for Vertex AI instead of AI Studio
+        sync: false
+      # Web search (Tavily) — used by the DiscoveryAgent
       - key: TAVILY_API_KEY
         sync: false
-      # Cron security — same key configured in both services below
+      # Cron security — generated once here, shared with the crons + frontend below
       - key: CRON_API_KEY
-        sync: false
+        generateValue: true
 
-  # ── Cron: daily pipeline at 7:00 AM UTC ────────────────────────────────────
+  # ── Web service: Next.js frontend (Node) ────────────────────────────────────
+  - type: web
+    name: eb1a-frontend
+    runtime: node
+    rootDir: frontend
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: "20.11.1"
+      # Supabase — public anon values are safe to expose; RLS is the boundary
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      # Service role key — server-side API routes only (never sent to the browser)
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # AI keys — routes pick the first available (Anthropic > OpenAI > Gemini)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # Evaluator results email
+      - key: RESEND_API_KEY
+        sync: false
+      # Agent server URL — set BOTH to the eb1a-agent-server https URL after first
+      # deploy (e.g. https://eb1a-agent-server.onrender.com, no trailing slash).
+      - key: AGENT_SERVER_URL
+        sync: false
+      - key: RENDER_SERVICE_URL
+        sync: false
+      # Shared cron secret — auto-wired to match the agent server's generated value
+      - key: CRON_API_KEY
+        fromService:
+          type: web
+          name: eb1a-agent-server
+          envVarKey: CRON_API_KEY
+
+  # ── Cron: daily pipeline at 07:00 UTC ───────────────────────────────────────
   - type: cron
     name: eb1a-daily-trigger
-    env: python
+    runtime: python
     rootDir: agents
+    plan: starter
     schedule: "0 7 * * *"
     buildCommand: pip install httpx
     startCommand: python cron_trigger.py daily
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # Set to the eb1a-agent-server https URL (no trailing slash)
       - key: SERVICE_URL
-        sync: false            # set to your Render web service URL
-      - key: CRON_API_KEY
         sync: false
+      - key: CRON_API_KEY
+        fromService:
+          type: web
+          name: eb1a-agent-server
+          envVarKey: CRON_API_KEY
 
-  # ── Cron: weekly reflection at midnight UTC Sunday ──────────────────────────
+  # ── Cron: weekly reflection at 00:00 UTC Sunday ─────────────────────────────
   - type: cron
     name: eb1a-weekly-trigger
-    env: python
+    runtime: python
     rootDir: agents
+    plan: starter
     schedule: "0 0 * * 0"
     buildCommand: pip install httpx
     startCommand: python cron_trigger.py weekly
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
       - key: SERVICE_URL
-        sync: false            # same URL as above
-      - key: CRON_API_KEY
         sync: false
+      - key: CRON_API_KEY
+        fromService:
+          type: web
+          name: eb1a-agent-server
+          envVarKey: CRON_API_KEY

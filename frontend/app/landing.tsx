@@ -760,7 +760,7 @@ function HowItWorks() {
                     {p.number}
                   </div>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.07em', letterSpacing: '-0.01em' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                       Phase {i + 1}: {p.label}
                     </div>
                     <div
