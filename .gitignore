@@ -6,6 +6,7 @@
 agents/.env
 frontend/.env.local
 *.env
+render_mcp.txt
 
 # Python
 __pycache__/
