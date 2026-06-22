@@ -57,7 +57,8 @@ services:
       # Service role key — server-side API routes only (never sent to the browser)
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # AI keys — routes pick the first available (Anthropic > OpenAI > Gemini)
+      # Advisor chat keys — routes pick the first available (Anthropic > Gemini > OpenAI)
+      # OpenAI also powers the advisor RAG embeddings (text-embedding-3-small)
       - key: OPENAI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY

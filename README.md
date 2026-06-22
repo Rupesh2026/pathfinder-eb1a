@@ -28,14 +28,14 @@ This system automates the discovery and planning work:
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 14 (App Router, TypeScript, Tailwind CSS) |
+| Frontend | Next.js 14 (App Router, TypeScript, Tailwind CSS — responsive, mobile-ready) |
 | Auth + Database | Supabase (Postgres + pgvector + RLS) |
 | Agent service | Python 3.11 + FastAPI + Google ADK |
-| AI models | OpenAI gpt-4o (primary) or Gemini 2.0 Flash |
+| AI models | OpenAI gpt-4o-mini (primary) or Gemini 2.0 Flash |
 | Web search | Tavily API (via direct HTTP) |
 | Embeddings | OpenAI text-embedding-3-small |
-| Advisor chat | Anthropic Claude or Gemini (frontend) |
-| Hosting | Vercel (frontend) + Render (agents) |
+| Advisor chat | Anthropic Claude → Gemini → OpenAI (first key available, frontend) |
+| Hosting | Render (full stack via Blueprint); frontend also deployable to Vercel |
 
 ---
 
@@ -43,12 +43,13 @@ This system automates the discovery and planning work:
 
 ```
 /
-├── frontend/                  # Next.js app (Vercel)
+├── frontend/                  # Next.js app (Render web service, or Vercel)
 │   ├── app/
 │   │   ├── (auth)/            # Sign-in, sign-up pages
 │   │   ├── onboarding/        # First-time profile + evidence setup
 │   │   ├── dashboard/         # Main app (evidence, opportunities, advisor, calendar)
 │   │   ├── evaluate/          # Free pre-auth EB-1A evaluator (top-of-funnel)
+│   │   ├── actions/           # Server actions (auth, evidence, plans, opportunities, letters)
 │   │   └── api/               # Server-side API routes
 │   ├── components/            # Shared UI components
 │   └── lib/                   # Supabase clients, types, utilities
@@ -65,7 +66,7 @@ This system automates the discovery and planning work:
 ├── supabase/
 │   └── migrations/            # 14 SQL migration files (001–014)
 ├── docs/                      # Screenshots and assets
-├── render.yaml                # Render deployment config (web service + 2 cron jobs)
+├── render.yaml                # Render Blueprint (2 web services + 2 cron jobs)
 ├── start.ps1                  # Windows convenience script (starts both services)
 ├── architecture.md            # Full system architecture doc
 └── AGENTS.md                  # Agent specs and prompts
@@ -86,7 +87,7 @@ EvidenceAgent → DiscoveryAgent → PrioritizationAgent → CoachAgent
 | Agent | What it does | Data in | Data out |
 |---|---|---|---|
 | **EvidenceAgent** | Scores all 10 criteria 0–100, identifies critical gaps | `evidence` table + KB pattern summaries | Gap analysis passed to next agents |
-| **DiscoveryAgent** | Web-searches for real opportunities targeting weak criteria | Tavily API + Supabase dedup | New rows in `opportunities` |
+| **DiscoveryAgent** | Web-searches worldwide; scans the user's saved Criteria Focus (or weak criteria if none set) | Tavily API + Supabase dedup | New rows in `opportunities` |
 | **PrioritizationAgent** | Scores open opportunities using gap importance + prestige + USCIS approval rates | `opportunities` + `pattern_aggregates` | Updated `priority_score` on each opp |
 | **CoachAgent** | Generates top 3 daily actions; carries forward missed deadlines | Top 5 opps + yesterday's plan | Upserts today's `daily_plans` row |
 
@@ -100,8 +101,10 @@ EvidenceAgent → DiscoveryAgent → PrioritizationAgent → CoachAgent
 ### Prioritization scoring formula
 
 ```
-score = (prestige × 0.25 + narrative_fit × 0.20 + acceptance_prob × 0.20
-       + time_efficiency × 0.15 + gap_weight × 0.20) × 100
+score = (prestige × 0.25 + narrative_fit × 0.20 + acceptance_prob × 0.15
+       + time_efficiency × 0.10 + gap_weight × 0.20 + profile_fit × 0.10) × 100
+
+each factor rated 1–5 by the agent
 
 gap_weight multiplier:
   criterion score < 40  → 2x   (critical gap)
@@ -341,7 +344,23 @@ curl -X POST http://localhost:8000/run-knowledge-base \
 
 ### 8. Deploy
 
-**Frontend → Vercel**
+**Full stack → Render Blueprint (recommended)**
+
+The `render.yaml` at the repo root deploys everything. See [DEPLOY.md](DEPLOY.md) for the full step-by-step guide and secret checklist.
+
+1. Push the repo to GitHub
+2. In Render: **New** → **Blueprint** → connect the repo
+3. Render reads `render.yaml` and creates four services:
+   - **Web Service** (`eb1a-agent-server`) — FastAPI + Google ADK agent API
+   - **Web Service** (`eb1a-frontend`) — Next.js 14 app (dashboard + evaluator)
+   - **Cron Job** (`eb1a-daily-trigger`) — runs the daily pipeline at 7am UTC
+   - **Cron Job** (`eb1a-weekly-trigger`) — runs weekly reflection at midnight UTC Sunday
+4. Fill in the environment variables in each service's **Environment** tab (Render marks them `sync: false`). `CRON_API_KEY` is generated once on the agent server and auto-shared with the crons and frontend via `fromService`.
+5. After the agent server is live, set `AGENT_SERVER_URL` / `RENDER_SERVICE_URL` (frontend) and `SERVICE_URL` (both crons) to its URL.
+
+**Frontend → Vercel (alternative)**
+
+Prefer Vercel for the frontend? Delete the `eb1a-frontend` block from `render.yaml`, then:
 
 ```bash
 npm install -g vercel
@@ -350,19 +369,7 @@ vercel deploy
 
 Add all `frontend/.env.local` variables in Vercel's project settings under **Environment Variables**.
 
-**Agents → Render**
-
-The `render.yaml` at the repo root configures everything automatically:
-
-1. Push the repo to GitHub
-2. In Render: **New** → **Blueprint** → connect the repo
-3. Render will create:
-   - One **Web Service** (`eb1a-agent-server`) running FastAPI
-   - One **Cron Job** (`eb1a-daily-trigger`) — runs at 7am UTC daily
-   - One **Cron Job** (`eb1a-weekly-trigger`) — runs at midnight UTC Sunday
-4. Fill in the environment variables in each service's **Environment** tab (Render marks them `sync: false` as a reminder)
-
-Manual deploy without Blueprint:
+**Agents only, manual (without Blueprint):**
 
 | Setting | Value |
 |---|---|
@@ -403,10 +410,10 @@ The system discovers opportunities worldwide. Non-US in-person events are filter
 
 Set `LLM_PROVIDER` in `agents/.env`:
 
-- `openai` — uses `gpt-4o` (default; handles large token contexts well)
+- `openai` — uses `gpt-4o-mini` (default; its high tokens-per-minute limit absorbs the discovery agent's large web-search contexts, and it's far cheaper)
 - `gemini` — uses `gemini-2.0-flash` via AI Studio or Vertex AI
 
-The frontend advisor chat uses Anthropic Claude or Gemini depending on which key is set in `frontend/.env.local` — it does not use `LLM_PROVIDER`.
+The frontend advisor chat is independent of `LLM_PROVIDER`. It picks the first available key in order **Anthropic (`claude-sonnet-4-6`) → Gemini (`gemini-2.0-flash`) → OpenAI (`gpt-4o`)**, set in `frontend/.env.local`.
 
 ---
 

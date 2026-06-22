@@ -14,8 +14,9 @@ main.py: run_daily_agents_for_user(user_id)
   │      output: (weak_criteria, scores, critical_gaps)  ← parsed by _parse_evidence()
   │
   ├─ 2. DiscoveryAgent.run()
-  │      input : user_id, domain, role, weak_criteria, focused_criteria, profile_context
-  │      output: opportunities written to DB
+  │      input : user_id, domain, role, weak_criteria, focused_criteria,
+  │              scan_criteria (= focused_criteria if set, else weak_criteria), profile_context
+  │      output: opportunities written to DB (future-dated only)
   │
   ├─ 3. PrioritizationAgent.run()
   │      input : user_id, evidence_scores, profile_context
@@ -141,8 +142,12 @@ KB context (USCIS adjudication patterns from `document_chunks`) is appended to t
 ## DiscoveryAgent
 
 **Runs:** Step 2 of daily pipeline
-**Input:** `user_id`, `domain`, `role`, `weak_criteria`, `focused_criteria`, `profile_context`
+**Input:** `user_id`, `domain`, `role`, `weak_criteria`, `focused_criteria`, `scan_criteria`, `profile_context`
 **Output:** New opportunities written to `opportunities` table; count summary returned to `main.py`
+
+### Focus-driven scan target
+
+`main.py` computes `scan_criteria = focused_criteria if set else weak_criteria` and passes it in. The agent discovers opportunities **only** for the criteria in `scan_criteria`, so the user's saved Criteria Focus drives exactly what gets scanned (read fresh each run). Only opportunities whose deadline is **today or later** are written (rolling/always-open calls keep `deadline = null`); the backend discards past-deadline rows as a safety net.
 
 ### Tools
 

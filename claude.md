@@ -7,10 +7,10 @@ A multi-agent system that helps users build their EB-1A (extraordinary ability) 
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 14 (App Router) — Vercel |
+| Frontend | Next.js 14 (App Router) — Render (or Vercel) |
 | Auth + Database | Supabase (Postgres + pgvector) |
 | Agent server | Python 3.11 + Google ADK — Render |
-| AI models | OpenAI GPT-4o (primary) or Vertex AI Gemini — injected via env vars |
+| AI models | Agents: OpenAI gpt-4o-mini (primary) or Vertex AI Gemini. Advisor chat (frontend): Anthropic Claude → Gemini → OpenAI — all injected via env vars |
 | Web search | Tavily API |
 | Email | Resend API |
 | Scheduling | Render cron jobs (7am daily per user) |
@@ -42,11 +42,18 @@ A multi-agent system that helps users build their EB-1A (extraordinary ability) 
 
 ## Environment variables
 
-### Frontend (Vercel)
+### Frontend (Render web service, or Vercel)
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_AGENT_URL=            # Render agent server base URL
+SUPABASE_SERVICE_ROLE_KEY=        # Server-side API routes only — never sent to the browser
+AGENT_SERVER_URL=                 # Render agent server base URL (scan trigger)
+RENDER_SERVICE_URL=               # Same agent server URL (used by some routes)
+CRON_API_KEY=                     # Shared secret — must match the agent server
+RESEND_API_KEY=                   # Evaluator results email
+ANTHROPIC_API_KEY=                # Advisor chat (first choice)
+GEMINI_API_KEY=                   # Advisor chat fallback
+OPENAI_API_KEY=                   # Advisor chat fallback + advisor RAG embeddings
 ```
 
 ### Agent server (Render)
@@ -85,9 +92,11 @@ The pipeline is **deterministic and sequential** — not LLM-supervised delegati
 ```
 run_daily_agents_for_user(user_id)
   1. EvidenceAgent      → reads evidence rows; returns (weak_criteria, scores, critical_gaps)
-  2. DiscoveryAgent     → web searches WORLDWIDE for opportunities targeting weak_criteria;
-                          applies EB-1A Quality Gate (domain + role match, prestige tier,
-                          profile fit); writes qualifying opportunities to DB
+  2. DiscoveryAgent     → web searches WORLDWIDE; scans exactly the user's saved
+                          Criteria Focus (profiles.focused_criteria) when set, else falls
+                          back to weak_criteria; only discovers opportunities whose deadline
+                          is today or later; applies EB-1A Quality Gate (domain + role match,
+                          prestige tier, profile fit); writes qualifying opportunities to DB
   3. PrioritizationAgent→ reads all open opportunities; scores each with 6-factor formula
                           using evidence_scores + profile context; writes priority_score to DB
   4. CoachAgent         → reads top-ranked opportunities + yesterday's plan;
@@ -116,6 +125,8 @@ All endpoints require `X-Api-Key: {CRON_API_KEY}` header.
 - Daily plans are regenerated fresh each day; outcomes persist forever
 - Opportunities carry `country` (host country name or "Global") and `mode` (online / in_person / hybrid)
 - Non-US in-person-only opportunities are hidden from the dashboard — users may lack visa flexibility to travel
+- Discovery is **focus-driven**: when the user has saved a Criteria Focus (`profiles.focused_criteria`), the scan targets exactly those criteria (read fresh each scan); otherwise it falls back to all weak criteria
+- Discovery only writes opportunities whose application deadline is today or later — never past deadlines
 - Profile fields `role`, `salary_band`, `country_of_origin`, and `education` are fetched and passed to **all agents** to enable personalized, profile-matched recommendations
 - The `_build_profile_context(profile)` helper in `main.py` maps salary bands to seniority labels and formats the `education` JSONB array into a compact string for injection into agent prompts
 - TypeScript for all frontend code
@@ -205,3 +216,15 @@ Premium, calm, trustworthy — matching the quality of claude.ai. Light backgrou
 
 ### Accent color reference
 The accent is coral/orange-red `#e8643a` — the same tone as claude.ai's CTA buttons. Every primary action, active state, and emphasis uses this. **Never reintroduce indigo/blue as a primary accent.**
+
+### Responsive / Mobile
+
+> **RULE: The laptop/web UI (≥1024px) must stay pixel-identical. Mobile work only ever *adds* rules gated behind a breakpoint — never changes a desktop value.**
+
+- The app uses heavy inline `style={{}}`, which Tailwind responsive variants **cannot** override (inline wins). So mobile overrides live in a `@media (max-width: 768px)` helper layer at the bottom of `frontend/app/globals.css`, using helper classes with `!important`:
+  - `.r-stack` (grid → 1 col), `.r-cols2`, `.r-rowcol` (flex row → column), `.r-wrap`, `.r-scroll-x`, `.r-full`, `.r-pad-card`, `.r-section` (trim 96px section padding), `.r-gap-sm`, `.r-edu-row` (profile education reflow).
+  - Add the class to a container; on desktop the query never matches, so it's inert.
+- Where an element is already Tailwind-classed with **no** conflicting inline style, prefer mobile-first variants instead: e.g. `grid-cols-1 lg:grid-cols-2`, `grid-cols-2 md:grid-cols-4`, `hidden sm:inline`.
+- Breakpoint choice mirrors structure: use `lg:` (1024) where it must match the dashboard sidebar drawer (`DashboardShell` defaults the sidebar closed below 1024 and slides it in over a backdrop); `md:`/`sm:` otherwise.
+- `app/layout.tsx` exports an explicit `viewport` (`width=device-width, initialScale=1, maximumScale=5`).
+- The `img, video, canvas { max-width: 100%; height: auto }` guard deliberately excludes `svg` so Lucide icon sizes are preserved.

@@ -35,7 +35,7 @@ A multi-agent system that helps users build their EB-1A (extraordinary ability) 
               └────────────┬────────────┘
                            │ reads via RLS
               ┌────────────▼────────────┐
-              │   VERCEL (Next.js 14)   │
+              │   RENDER (Next.js 14)   │
               │   Dashboard + Auth UI   │
               └─────────────────────────┘
 ```
@@ -46,10 +46,11 @@ A multi-agent system that helps users build their EB-1A (extraordinary ability) 
 
 | Layer | Technology | Hosting |
 |---|---|---|
-| Frontend | Next.js 14 (App Router, TypeScript) | Vercel |
+| Frontend | Next.js 14 (App Router, TypeScript, Tailwind — responsive) | Render (or Vercel) |
 | Auth + Database | Supabase (Postgres + pgvector) | Supabase Cloud |
 | Agent Service | Python 3.11 + FastAPI + Google ADK | Render |
-| AI Models | OpenAI gpt-4o-mini (default) or Gemini 2.0 Flash | API |
+| AI Models (agents) | OpenAI gpt-4o-mini (default) or Gemini 2.0 Flash | API |
+| AI Models (advisor chat) | Anthropic Claude → Gemini → OpenAI (first available) | API |
 | Web Search | Tavily API | API |
 | Embeddings | OpenAI text-embedding-3-small (1536-dim) | API |
 | Scheduling | Render cron jobs | Render |
@@ -62,11 +63,17 @@ A multi-agent system that helps users build their EB-1A (extraordinary ability) 
 /
 ├── frontend/
 │   ├── app/
-│   │   ├── (auth)/signin/          # Sign-in page
-│   │   ├── (auth)/signup/          # Sign-up page
+│   │   ├── landing.tsx             # Public marketing landing page
+│   │   ├── layout.tsx              # Root layout + viewport export (mobile scaling)
+│   │   ├── globals.css             # Design tokens + responsive helper layer (≤768px)
+│   │   ├── (auth)/signin|signup/   # Auth pages
 │   │   ├── onboarding/             # First-time profile + evidence setup
+│   │   ├── evaluate/               # Free pre-auth EB-1A evaluator (top-of-funnel)
+│   │   ├── actions/                # Server actions: auth, evidence, plans, opportunities, letters, onboarding
 │   │   ├── dashboard/              # Protected route hub
 │   │   │   ├── page.tsx            # Command center (main dashboard)
+│   │   │   ├── components/         # DashboardShell (collapsible sidebar), panels, cards
+│   │   │   ├── hooks/              # Dashboard client hooks
 │   │   │   ├── evidence/           # View/add evidence per criterion
 │   │   │   ├── opportunities/      # Worldwide opportunity list
 │   │   │   ├── letters/            # Recommendation letter tracker
@@ -74,11 +81,14 @@ A multi-agent system that helps users build their EB-1A (extraordinary ability) 
 │   │   │   ├── profile/            # User profile settings
 │   │   │   └── calendar/           # Deadline + streak calendar
 │   │   └── api/
-│   │       ├── dashboard/          # profile, criteria, tasks, scan, chat, deadlines, streak, summary
+│   │       ├── dashboard/          # profile, criteria, tasks, scan, chat, deadlines, streak, summary, outcomes, readiness, opportunities
+│   │       ├── advisor/query/      # Vector search over KB chunks (advisor RAG context)
+│   │       ├── evaluate/           # Free evaluator (two-stage GPT-4o + Resend email)
+│   │       ├── criteria/           # Criteria scoring read
 │   │       ├── evidence/           # score
 │   │       ├── knowledge/          # status, backfill
 │   │       └── opportunities/      # [id]/outcome, [id]/skip
-│   ├── components/                 # Shared UI (charts, cards, feeds)
+│   ├── components/                 # Shared UI: CriteriaScoreChart, OpportunityCard, DailyPlanCard, ReflectionFeed, ErrorMessage
 │   ├── lib/
 │   │   ├── supabase/client.ts      # Browser Supabase client (anon key)
 │   │   ├── supabase/server.ts      # Server Supabase client (anon key, RLS)
@@ -90,7 +100,7 @@ A multi-agent system that helps users build their EB-1A (extraordinary ability) 
 ├── agents/
 │   ├── main.py                     # FastAPI app + cron endpoints
 │   ├── agents/
-│   │   ├── base_agent.py           # Shared ADK agent base
+│   │   ├── base.py                 # Shared ADK agent base (build_* factories)
 │   │   ├── supervisor_agent.py     # Defined but not used for delegation
 │   │   ├── evidence_agent.py
 │   │   ├── discovery_agent.py
@@ -115,8 +125,10 @@ A multi-agent system that helps users build their EB-1A (extraordinary ability) 
 │   └── knowledge/
 │       └── eb1a_rubric.txt         # 10-criterion scoring rubric with field examples
 ├── supabase/
-│   └── migrations/                 # 13 SQL files (001–013)
-└── CLAUDE.md / AGENTS.md
+│   └── migrations/                 # 14 SQL files (001–014)
+├── render.yaml                     # Render Blueprint: 2 web services + 2 cron jobs
+├── DEPLOY.md                       # Render deploy guide + secret checklist
+└── CLAUDE.md / AGENTS.md / architecture.md
 ```
 
 ---
@@ -274,17 +286,22 @@ EvidenceAgent → DiscoveryAgent → PrioritizationAgent → CoachAgent
 
 ### DiscoveryAgent
 
-**What it does:** Searches the web for real opportunities matching the user's weak criteria and domain, then writes them to Supabase with location and delivery metadata.
+**What it does:** Searches the web for real opportunities matching the user's domain/role, then writes them to Supabase with location and delivery metadata.
+
+**Focus-driven scan target:** `main.py` computes `scan_criteria = focused_criteria if set else weak_criteria` and passes it in. The agent discovers opportunities **only** for the criteria in `scan_criteria` — so a user's saved Criteria Focus drives exactly what gets scanned (read fresh each run, so later-added focus criteria are picked up automatically).
+
+**Future-dated only:** Only opportunities whose application/submission/nomination deadline is **today or later** are written. Rolling/always-open calls (peer-review signups, editorial boards, podcast pitches) keep `deadline = null`. The backend also discards any row whose deadline is before today, as a safety net.
 
 **Data sources:**
 - Tavily API web search (excludes LinkedIn, Reddit, Quora; includes domain-relevant sites)
-- `read_existing_opportunity_titles(user_id)` — for deduplication
+- `write_opportunities` upserts on URL — the agent passes everything it finds; the DB refreshes deadlines/descriptions on re-encounter rather than the agent guessing what's a duplicate
 
-**How it searches:** Per criterion, runs 2 query passes:
-1. Global: e.g. `"call for papers NLP 2025 judging reviewer"`
-2. Domain-specific: e.g. `"machine learning NeurIPS ICML 2025 program committee"`
+**How it searches:** Per search template, runs **3 query passes** (always with `exclude_domains`):
+1. **WORLDWIDE** — no `include_domains`; results span the globe
+2. **FOCUSED** — with the template's `include_domains` to catch top venues
+3. **FRESHNESS** — no `include_domains`, `time_range="month"`, for newly-announced calls
 
-Each criterion has its own search template. Templates exist for: judging, cfp, speaking, awards, press, peer_review.
+Fallback: if all three passes for a template return fewer than 2 results, one broad query runs with no domain filter. Each criterion has its own search template: judging, cfp, speaking, awards, press, review.
 
 **Visibility normalization (written at insert time):**
 
@@ -314,13 +331,14 @@ The visibility rule is enforced at the API read level too. Non-US in-person oppo
 score = (
   prestige           * 0.25 +
   narrative_fit      * 0.20 +
-  acceptance_prob    * 0.20 +
-  time_efficiency    * 0.15 +
-  gap_weight         * 0.20
+  acceptance_prob    * 0.15 +
+  time_efficiency    * 0.10 +
+  gap_weight         * 0.20 +
+  profile_fit        * 0.10
 ) * 100
 ```
 
-Each factor is 1–5 (rated by the LLM). `gap_weight` is then multiplied:
+Each factor is 1–5 (rated by the LLM). `profile_fit` rates how well the opportunity matches the user's role, seniority, and domain. `gap_weight` is then multiplied:
 - Criterion score `< 40` → 2x
 - Criterion score `40–64` → 1.5x
 - Criterion score `>= 65` → 1x
@@ -458,13 +476,14 @@ Supabase Auth with JWTs stored in cookies. `middleware.ts` runs on all `/dashboa
 | Route | Purpose |
 |---|---|
 | `/` | Public landing page |
+| `/evaluate` | Free pre-auth EB-1A evaluator (top-of-funnel → `/signup`) |
 | `/signin`, `/signup` | Auth pages |
 | `/onboarding` | Initial profile + evidence setup (first-time only) |
 | `/dashboard` | Command center: overall readiness, criteria overview, upcoming deadlines, top opportunities, today's actions |
 | `/dashboard/evidence` | View and add evidence per criterion |
 | `/dashboard/opportunities` | Filterable worldwide opportunity list |
 | `/dashboard/letters` | Recommendation letter tracker |
-| `/dashboard/advisor` | Streaming AI chat using Claude (server-side Anthropic API) |
+| `/dashboard/advisor` | Streaming AI chat (Anthropic → Gemini → OpenAI fallback, server-side) |
 | `/dashboard/profile` | Edit domain, role, salary band, focused criteria |
 | `/dashboard/calendar` | Completion streaks + deadline calendar |
 
@@ -481,10 +500,12 @@ Supabase Auth with JWTs stored in cookies. `middleware.ts` runs on all `/dashboa
 | `/api/dashboard/opportunities` | GET | `opportunities` filtered by visibility rule, criteria, type, applied flag |
 | `/api/dashboard/deadlines` | GET | Open opportunities with upcoming deadlines |
 | `/api/dashboard/summary` | GET | Overall readiness % (average evidence score across criteria) |
+| `/api/dashboard/readiness` | GET | Readiness breakdown for the dashboard card |
+| `/api/dashboard/outcomes` | GET / POST | Application outcomes log |
 | `/api/dashboard/streak` | GET | Daily completion streak from `daily_plans` |
 | `/api/dashboard/scan` | POST | Forwards to agent server `/run-daily-agent` |
 | `/api/dashboard/scan/status` | GET | Reads `profiles.scan_status` |
-| `/api/dashboard/chat` | POST | Streams chat via Anthropic API with user context injected |
+| `/api/dashboard/chat` | POST | Streams advisor chat; picks first available provider **Anthropic (`claude-sonnet-4-6`) → Gemini (`gemini-2.0-flash`) → OpenAI (`gpt-4o`)**, with user context injected |
 
 **Opportunity actions:**
 
@@ -498,6 +519,9 @@ Supabase Auth with JWTs stored in cookies. `middleware.ts` runs on all `/dashboa
 | Route | Method | Action |
 |---|---|---|
 | `/api/evidence/score` | GET | Returns per-criterion scores with strength feedback |
+| `/api/criteria` | GET | Criteria scoring read |
+| `/api/advisor/query` | POST | Embeds the question and vector-searches `document_chunks`; returns KB context chunks for the advisor (RAG) |
+| `/api/evaluate` | POST | Free pre-auth evaluator — two-stage GPT-4o eval + Resend email |
 | `/api/knowledge/status` | GET | Last `scrape_runs` entry |
 | `/api/knowledge/backfill` | POST | Triggers `/run-knowledge-base?backfill=true` |
 
@@ -509,16 +533,30 @@ Supabase Auth with JWTs stored in cookies. `middleware.ts` runs on all `/dashboa
 
 ### Key Frontend Components
 
+**Shared (`frontend/components/`):** `CriteriaScoreChart` (radar of 10 criteria), `OpportunityCard`, `DailyPlanCard`, `ReflectionFeed`, `ErrorMessage`.
+
+**Dashboard (`frontend/app/dashboard/components/`):**
+
 | Component | Purpose |
 |---|---|
-| `CriteriaScoreChart` | Radar chart of 10 criteria scores |
-| `OpportunityCard` | Single opportunity with apply/skip actions |
-| `DailyPlanCard` | Single coach action with mark-done button |
-| `ReflectionFeed` | Weekly insights feed |
-| `ScanButton` | Triggers agent scan + polls status |
-| `AdvisorChat` | Streaming chat UI |
+| `DashboardShell` | App shell with the **collapsible slide-in/out left sidebar**; defaults the sidebar closed below 1024px and slides it in over a backdrop |
+| `SidebarNav` | Left navigation items |
+| `ReadinessCard` | Overall readiness score card |
+| `CriteriaOpportunityPanels` / `CriteriaPanel` | Criteria scores + matched opportunities |
+| `OpportunityList` | Filterable worldwide opportunity list |
+| `TaskList` | Today's coach actions with mark-done |
+| `StatsRow` | Top-line stat counters |
+| `FilingCountdown` | Countdown to `target_filing_date` |
+| `UpcomingDeadlines` | Open opportunities with near deadlines |
 | `StreakCalendar` | Completion streak visualization |
 | `OutcomeTracker` | Application result log |
+| `ScanButton` | Triggers agent scan + polls status |
+| `AdvisorChat` | Streaming chat UI |
+| `SignOutButton`, `Toast` | Auth + transient notifications |
+
+### Responsive / Mobile
+
+The desktop UI (≥1024px) is kept pixel-identical; mobile support is additive only. Inline `style={{}}` can't be overridden by Tailwind variants, so a `@media (max-width: 768px)` helper layer at the bottom of `globals.css` provides `!important` classes (`.r-stack`, `.r-rowcol`, `.r-cols2`, `.r-section`, `.r-edu-row`, etc.) that containers opt into. Tailwind-classed elements without conflicting inline styles use mobile-first variants (`grid-cols-1 lg:grid-cols-2`). `app/layout.tsx` exports an explicit `viewport`. See the **UI Design System → Responsive / Mobile** section in `CLAUDE.md`.
 
 ---
 
@@ -596,9 +634,14 @@ Defines scoring bands for all 10 criteria with field-specific examples:
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-ANTHROPIC_API_KEY=          # advisor chat (Claude)
-AGENT_SERVER_URL=            # Render URL for scan trigger
+SUPABASE_SERVICE_ROLE_KEY=   # server-side API routes only — never sent to browser
+AGENT_SERVER_URL=            # Render agent server URL (scan trigger)
+RENDER_SERVICE_URL=          # same agent server URL (used by some routes)
 CRON_API_KEY=                # shared secret for agent endpoints
+RESEND_API_KEY=              # evaluator results email
+ANTHROPIC_API_KEY=           # advisor chat — first choice
+GEMINI_API_KEY=              # advisor chat — fallback
+OPENAI_API_KEY=              # advisor chat fallback + advisor RAG embeddings
 ```
 
 ### Agent Service (`agents/.env`)
@@ -606,9 +649,10 @@ CRON_API_KEY=                # shared secret for agent endpoints
 ```
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=   # NEVER expose to frontend
+LLM_PROVIDER=openai          # "openai" → gpt-4o-mini, or "gemini" → gemini-2.0-flash
 OPENAI_API_KEY=
+GEMINI_API_KEY=              # only when LLM_PROVIDER=gemini
 TAVILY_API_KEY=
-LLM_PROVIDER=openai          # or "gemini"
 SERVICE_URL=                 # self-reference for cron trigger
 CRON_API_KEY=
 ```
@@ -629,7 +673,11 @@ CRON_API_KEY=
 
 **Mock data for new users.** `lib/mock-data.ts` provides sample opportunities shown before the first scan completes, preventing an empty dashboard on day one.
 
-**Focus criteria.** Users can pin specific criteria to prioritize. Agents use the intersection of `weak_criteria` (score < 65) and `focused_criteria` (user preference) when deciding where to search.
+**Focus-driven discovery.** Users pin a Criteria Focus (`profiles.focused_criteria`). When set, the DiscoveryAgent scans **exactly those criteria** — whether or not they're weak — via `scan_criteria = focused_criteria`. When no focus is set, it falls back to all weak criteria (score < 65). `scan_criteria` is read fresh from the profile each scan, so criteria added later are picked up automatically. (This replaced an earlier intersection-of-weak-and-focused approach.)
+
+**Future-dated opportunities only.** The DiscoveryAgent writes only opportunities whose deadline is today or later (or `null` for rolling calls); the backend discards any past-deadline row as a safety net. This keeps the dashboard actionable.
+
+**Full-stack Render deploy.** `render.yaml` is a single Blueprint provisioning both web services (agent server + Next.js frontend) and both cron jobs. `CRON_API_KEY` is generated once on the agent server and shared to the crons and frontend via `fromService`. The frontend can alternatively run on Vercel by removing the `eb1a-frontend` block. See `DEPLOY.md`.
 
 ---
 
