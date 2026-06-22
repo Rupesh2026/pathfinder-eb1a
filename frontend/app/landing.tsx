@@ -165,7 +165,7 @@ function DashboardMockup() {
 
 function Hero() {
   return (
-    <section style={{ position: 'relative', overflow: 'hidden', paddingTop: 96, paddingBottom: 96 }}>
+    <section className="r-section" style={{ position: 'relative', overflow: 'hidden', paddingTop: 96, paddingBottom: 96 }}>
       {/* Warm ambient glow */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -173,7 +173,7 @@ function Hero() {
       />
 
       <div className="mx-auto px-6" style={{ maxWidth: 1120, position: 'relative' }}>
-        <div className="grid gap-16 items-center" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="grid gap-16 items-center grid-cols-1 lg:grid-cols-2">
           {/* Left column */}
           <div>
             {/* Badge */}
@@ -297,20 +297,15 @@ function StatsBar() {
       }}
     >
       <div
-        className="mx-auto px-6"
-        style={{
-          maxWidth: 1120,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 0,
-        }}
+        className="mx-auto px-6 grid grid-cols-2 gap-y-5 md:grid-cols-4 md:gap-y-0"
+        style={{ maxWidth: 1120 }}
       >
         {stats.map((s, i) => (
           <div
             key={s.label}
+            className={i < stats.length - 1 ? 'md:[border-right:1px_solid_var(--border)]' : ''}
             style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-              borderRight: i < stats.length - 1 ? '1px solid var(--border)' : 'none',
               padding: '0 20px',
             }}
           >
@@ -360,7 +355,7 @@ function ProblemSection() {
   ]
 
   return (
-    <section style={{ background: '#1c1a17', padding: '96px 0' }}>
+    <section className="r-section" style={{ background: '#1c1a17', padding: '96px 0' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1120 }}>
         <div style={{ textAlign: 'center', marginBottom: 56 }}>
           <h2
@@ -381,6 +376,7 @@ function ProblemSection() {
         </div>
 
         <div
+          className="r-stack"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
@@ -452,9 +448,10 @@ function EvaluatorHook() {
   ]
 
   return (
-    <section style={{ padding: '96px 0', background: 'var(--bg-page)' }}>
+    <section className="r-section" style={{ padding: '96px 0', background: 'var(--bg-page)' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1120 }}>
         <div
+          className="r-pad-card"
           style={{
             background: 'var(--bg-surface)',
             border: '1px solid var(--border)',
@@ -464,7 +461,7 @@ function EvaluatorHook() {
             boxShadow: 'var(--shadow-md)',
           }}
         >
-          <div className="grid gap-12 items-center" style={{ gridTemplateColumns: '1fr auto' }}>
+          <div className="grid gap-12 items-center r-stack" style={{ gridTemplateColumns: '1fr auto' }}>
             <div>
               {/* Label */}
               <div style={{ marginBottom: 16 }}>
@@ -630,7 +627,7 @@ function PlatformFeatures() {
   ]
 
   return (
-    <section style={{ padding: '96px 0', background: 'var(--bg-raised)' }}>
+    <section className="r-section" style={{ padding: '96px 0', background: 'var(--bg-raised)' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1120 }}>
         <div style={{ textAlign: 'center', marginBottom: 60 }}>
           <h2
@@ -648,6 +645,7 @@ function PlatformFeatures() {
         </div>
 
         <div
+          className="r-stack"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
@@ -728,7 +726,7 @@ function HowItWorks() {
   ]
 
   return (
-    <section id="how-it-works" style={{ padding: '96px 0', background: 'var(--bg-page)' }}>
+    <section id="how-it-works" className="r-section" style={{ padding: '96px 0', background: 'var(--bg-page)' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1120 }}>
         <div style={{ textAlign: 'center', marginBottom: 60 }}>
           <h2
@@ -745,7 +743,7 @@ function HowItWorks() {
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
+        <div className="r-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
           {phases.map((p, i) => (
             <div key={p.number} style={{ position: 'relative' }}>
               <div className="card" style={{ padding: '32px 28px', height: '100%', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -817,7 +815,7 @@ function WhoItIsFor() {
   ]
 
   return (
-    <section style={{ padding: '96px 0', background: 'var(--bg-raised)' }}>
+    <section className="r-section" style={{ padding: '96px 0', background: 'var(--bg-raised)' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1120 }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <h2
@@ -834,7 +832,7 @@ function WhoItIsFor() {
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
+        <div className="r-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
           {personas.map(p => (
             <div
               key={p.title}
@@ -873,7 +871,7 @@ function TenCriteria() {
   ]
 
   return (
-    <section style={{ padding: '96px 0', background: 'var(--bg-page)' }}>
+    <section className="r-section" style={{ padding: '96px 0', background: 'var(--bg-page)' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1120 }}>
         <div style={{ textAlign: 'center', marginBottom: 52 }}>
           <h2
@@ -890,7 +888,7 @@ function TenCriteria() {
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 12 }}>
+        <div className="r-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 12 }}>
           {criteria.map(c => (
             <div
               key={c.id}
@@ -924,7 +922,7 @@ function TenCriteria() {
 
 function BottomCTA() {
   return (
-    <section style={{ position: 'relative', padding: '112px 0', background: '#1c1a17', overflow: 'hidden' }}>
+    <section className="r-section" style={{ position: 'relative', padding: '112px 0', background: '#1c1a17', overflow: 'hidden' }}>
       {/* Warm glow */}
       <div
         className="pointer-events-none absolute inset-0"

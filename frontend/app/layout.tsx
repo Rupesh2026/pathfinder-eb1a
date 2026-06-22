@@ -1,9 +1,17 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Pathfinder — EB-1A Case Builder',
   description: 'Build your extraordinary ability immigration case with AI-powered agents',
+}
+
+// Explicit mobile viewport so phones render at device width (not zoomed-out desktop).
+// maximumScale 5 keeps pinch-zoom available for accessibility.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

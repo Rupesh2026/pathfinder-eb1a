@@ -172,7 +172,7 @@ export default function ResultsDashboard({ result, email }: Props) {
         <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px' }}>
           Criteria Breakdown <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>— click to expand</span>
         </h2>
-        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+        <div className="r-stack" style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
           {result.criteria.map(c => (
             <CriterionCard key={c.id} c={c} />
           ))}

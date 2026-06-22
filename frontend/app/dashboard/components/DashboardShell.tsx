@@ -85,7 +85,9 @@ export default function DashboardShell({ sidebar, children }: { sidebar: ReactNo
       <main
         className={`flex-1 min-w-0 ml-0 ${open ? 'lg:ml-[224px]' : 'lg:ml-0'} ${mounted ? 'transition-[margin] duration-300' : ''}`}
       >
-        <div className="mx-auto max-w-[1200px] px-8 py-8">
+        {/* Mobile: smaller side padding + extra top space so the floating menu
+            toggle never overlaps page content. Desktop (lg+) keeps px-8 py-8. */}
+        <div className="mx-auto max-w-[1200px] px-4 pt-14 pb-8 lg:px-8 lg:py-8">
           {children}
         </div>
       </main>

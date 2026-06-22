@@ -202,7 +202,7 @@ export default function ProfilePage() {
         ) : (
           <div className="space-y-3">
             {education.map((entry, i) => (
-              <div key={i} className="grid grid-cols-9 gap-2 items-center">
+              <div key={i} className="r-edu-row grid grid-cols-9 gap-2 items-center">
                 {[
                   { key: 'degree', placeholder: 'PhD/MS/BS', cols: 2 },
                   { key: 'field', placeholder: 'Computer Science', cols: 2 },

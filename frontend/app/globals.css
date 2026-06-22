@@ -440,3 +440,47 @@ a { color: inherit; text-decoration: none; }
 /* ─── Transition utilities ───────────────────────────────────── */
 .transition-fast { transition: all 0.12s ease; }
 .transition-base { transition: all 0.2s ease; }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE LAYER
+   These rules ONLY apply at ≤768px, so the desktop / laptop UI is
+   left exactly as-is. Helpers use !important so they can override
+   the many inline style={{}} layouts without rewriting them.
+   Apply a helper by adding its class to a container; on desktop the
+   media query never matches and the class is inert.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Collapse any multi-column grid (or fixed minmax auto-fit grid) to one column.
+     Fixes both hard `repeat(n,1fr)` grids and `minmax(300px,…)` grids that would
+     otherwise overflow on narrow phones. */
+  .r-stack    { grid-template-columns: 1fr !important; }
+
+  /* Keep two columns on phones (compact stat/metric rows). */
+  .r-cols2    { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+
+  /* Turn a horizontal flex row into a vertical stack. */
+  .r-rowcol   { flex-direction: column !important; align-items: stretch !important; }
+
+  /* Let a flex row wrap instead of overflowing. */
+  .r-wrap     { flex-wrap: wrap !important; }
+
+  /* Wide / fixed-width content scrolls horizontally instead of breaking layout. */
+  .r-scroll-x { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+
+  /* Stretch a fixed-width block to the screen. */
+  .r-full     { width: 100% !important; max-width: 100% !important; }
+
+  /* Trim oversized desktop paddings on phones. */
+  .r-pad-card { padding: 22px !important; }
+  .r-section  { padding-top: 56px !important; padding-bottom: 56px !important; }
+  .r-gap-sm   { gap: 14px !important; }
+
+  /* Generic guard: raster media never forces horizontal overflow.
+     (svg excluded so fixed-size Lucide icons keep their dimensions.) */
+  img, video, canvas { max-width: 100%; height: auto; }
+
+  /* Profile education row: the desktop 9-column layout crushes inputs on phones.
+     Drop to two columns and neutralize the col-span-* spans so each field is usable. */
+  .r-edu-row { grid-template-columns: 1fr 1fr !important; }
+  .r-edu-row > * { grid-column: auto !important; }
+}

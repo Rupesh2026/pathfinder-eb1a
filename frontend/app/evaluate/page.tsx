@@ -98,6 +98,7 @@ export default function EvaluatePage() {
               Pathfinder
             </span>
             <span
+              className="hidden sm:inline"
               style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
                 background: 'var(--green-subtle)', color: 'var(--green)',
@@ -113,7 +114,7 @@ export default function EvaluatePage() {
               href="/signin"
               style={{ fontSize: 13.5, color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 500, letterSpacing: '-0.01em' }}
             >
-              Already a member? Sign in →
+              <span className="hidden sm:inline">Already a member? </span>Sign in →
             </Link>
           </div>
         </div>

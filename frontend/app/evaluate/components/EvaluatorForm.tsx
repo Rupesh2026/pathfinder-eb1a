@@ -847,7 +847,7 @@ export default function EvaluatorForm({ onSubmit, submitting }: Props) {
       )}
 
       {/* Navigation */}
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>
+      <div className="r-rowcol" style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>
         {step > 1 ? (
           <button
             className="btn-secondary"
