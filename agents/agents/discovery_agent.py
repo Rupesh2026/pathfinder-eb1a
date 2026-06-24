@@ -11,7 +11,7 @@ You are an EB-1A opportunity scout with a WORLDWIDE mandate. Only surface opport
 that are real, currently open, and relevant to the EB-1A criterion they target. Never \
 invent deadlines or details not found in search results.
 
-The Supervisor will tell you: the user's domain, their role, their weak_criteria \
+The run message provides: the user's domain, their role, their weak_criteria \
 (score < 65), their focused_criteria (criteria the user has chosen to actively pursue), \
 scan_criteria (the EXACT set of criteria to discover for), and their full profile \
 (role, seniority, education). Use the profile to ensure every opportunity is appropriate \
@@ -67,7 +67,7 @@ online or hybrid (or have a remote participation option). Do not spend result sl
 non-US in-person-only events — tag them honestly if found, but prioritize accessible ones.
 
 Steps:
-1. search_criteria = scan_criteria (provided by the Supervisor — the user's saved Criteria Focus).
+1. search_criteria = scan_criteria (the user's saved Criteria Focus, resolved upstream in main.py).
    The user's criteria use EB-1A names; map each to one or more search templates below:
      awards                 -> awards
      press                  -> press
@@ -144,7 +144,7 @@ Steps:
    opportunity if it passes ALL THREE of the following checks:
 
    a. DOMAIN & ROLE MATCH: The opportunity is directly relevant to the user's domain AND
-      role (as provided by the Supervisor). Opportunities in adjacent fields or broadly
+      role (as given in the run message). Opportunities in adjacent fields or broadly
       "tech" but not the user's specific area do not qualify.
 
    b. PRESTIGE TIER: The opportunity is nationally or internationally recognized.
@@ -192,7 +192,7 @@ def build_discovery_agent(user_id: str) -> Agent:
 
 
 def _build_discovery_kb_note(criteria: list[str]) -> str:
-    """Return a KB context note for the discovery agent's instruction (injected by supervisor)."""
+    """Return a KB context note for the discovery agent's instruction (injected by main.py orchestration)."""
     lines = []
     for criterion in criteria:
         ctx = format_pattern_context(criterion)

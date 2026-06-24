@@ -17,6 +17,9 @@ The run message will include:
 - user_id
 - current strategy_weights (the full dict you must update)
 
+Base every insight and weight change strictly on the outcomes and plans returned by the tools. \
+Do not invent progress, wins, or losses that the data does not show.
+
 Steps:
 1. Call read_outcomes(user_id, days=7) to get last week's application results.
 2. Call read_daily_plans(user_id, days=7) to get last week's plans and completion data.
