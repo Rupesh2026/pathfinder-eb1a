@@ -2,8 +2,19 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { sendEmail, passwordResetEmailHtml } from '@/lib/email'
+
+// Resolve the public origin of the current request (works locally and behind
+// the Render proxy) so password-reset links point back to this same deployment.
+async function getOrigin(): Promise<string> {
+  const h = await headers()
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:2028'
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
+  return `${proto}://${host}`
+}
 
 // Service-role client (bypasses RLS, has auth.admin access). Never exposed to the browser.
 function serviceClient() {
@@ -110,4 +121,72 @@ export async function signOut() {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect('/signin')
+}
+
+// ── Password reset ───────────────────────────────────────────────────────────
+
+// Step 1: user submits their email on /forgot-password. We mint a recovery
+// token server-side (admin.generateLink), build a link straight to our own
+// /auth/confirm route, and email it via Resend — so this works with zero
+// Supabase Site-URL / redirect-allowlist / email-template configuration.
+// /auth/confirm verifies the token (verifyOtp) and opens a short-lived recovery
+// session, then forwards to /reset-password.
+// We always return the same neutral confirmation regardless of whether the email
+// is registered, so this endpoint can't be used to enumerate accounts.
+export async function requestPasswordReset(formData: FormData) {
+  const email = (formData.get('email') as string)?.trim()
+  if (!email || !email.includes('@')) {
+    redirect(`/forgot-password?error=${encodeURIComponent('Enter a valid email address.')}`)
+  }
+
+  const origin = await getOrigin()
+
+  try {
+    const admin = serviceClient()
+    // generateLink errors for unregistered emails — caught below so we stay neutral.
+    const { data, error } = await admin.auth.admin.generateLink({ type: 'recovery', email })
+    const tokenHash = data?.properties?.hashed_token
+    if (!error && tokenHash) {
+      const link =
+        `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}` +
+        `&type=recovery&next=/reset-password`
+      await sendEmail({
+        to: email,
+        subject: 'Reset your Pathfinder password',
+        html: passwordResetEmailHtml(link),
+      })
+    }
+  } catch {
+    // Never reveal whether the account exists or that sending failed.
+  }
+
+  redirect('/forgot-password?sent=1')
+}
+
+// Step 2: user is on /reset-password with a recovery session and submits a new
+// password. updateUser changes it on the now-authenticated session.
+export async function updatePassword(formData: FormData) {
+  const password = formData.get('password') as string
+  const confirm = formData.get('confirm') as string
+
+  if (!password || password.length < 8) {
+    redirect(`/reset-password?error=${encodeURIComponent('Password must be at least 8 characters.')}`)
+  }
+  if (password !== confirm) {
+    redirect(`/reset-password?error=${encodeURIComponent('Passwords do not match.')}`)
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect(`/forgot-password?error=${encodeURIComponent('Your reset link expired. Request a new one.')}`)
+  }
+
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) {
+    redirect(`/reset-password?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath('/', 'layout')
+  redirect('/dashboard')
 }

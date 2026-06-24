@@ -1,10 +1,22 @@
 import Link from 'next/link'
-import { signIn } from '@/app/actions/auth'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { updatePassword } from '@/app/actions/auth'
 
 type Props = { searchParams: Promise<{ error?: string }> }
 
-export default async function SignInPage({ searchParams }: Props) {
+export default async function ResetPasswordPage({ searchParams }: Props) {
   const { error } = await searchParams
+
+  // The recovery link (via /auth/confirm) must have opened a session. Without
+  // one, there's nothing to reset — send the user back to request a fresh link.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect(
+      `/forgot-password?error=${encodeURIComponent('Open the reset link from your email to set a new password.')}`
+    )
+  }
 
   return (
     <div
@@ -39,10 +51,10 @@ export default async function SignInPage({ searchParams }: Props) {
                 letterSpacing: '-0.04em', margin: '0 0 5px',
               }}
             >
-              Welcome back
+              Choose a new password
             </h1>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0, letterSpacing: '-0.01em' }}>
-              Sign in to your Pathfinder account
+              Signed in as {user.email}
             </p>
           </div>
         </div>
@@ -70,60 +82,49 @@ export default async function SignInPage({ searchParams }: Props) {
             </div>
           )}
 
-          <form action={signIn} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <form action={updatePassword} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div>
               <label
-                htmlFor="email"
+                htmlFor="password"
                 style={{
                   display: 'block', fontSize: 13, fontWeight: 500,
                   color: 'var(--text-secondary)', marginBottom: 7, letterSpacing: '-0.01em',
                 }}
               >
-                Email address
+                New password
               </label>
               <input
-                id="email"
-                name="email"
-                type="email"
+                id="password"
+                name="password"
+                type="password"
                 required
-                autoComplete="email"
+                minLength={8}
+                autoComplete="new-password"
                 autoFocus
-                placeholder="you@example.com"
+                placeholder="At least 8 characters"
                 className="input"
                 style={{ fontSize: 14 }}
               />
             </div>
 
             <div>
-              <div
+              <label
+                htmlFor="confirm"
                 style={{
-                  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-                  marginBottom: 7,
+                  display: 'block', fontSize: 13, fontWeight: 500,
+                  color: 'var(--text-secondary)', marginBottom: 7, letterSpacing: '-0.01em',
                 }}
               >
-                <label
-                  htmlFor="password"
-                  style={{
-                    fontSize: 13, fontWeight: 500,
-                    color: 'var(--text-secondary)', letterSpacing: '-0.01em',
-                  }}
-                >
-                  Password
-                </label>
-                <Link
-                  href="/forgot-password"
-                  style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--accent)', textDecoration: 'none', letterSpacing: '-0.01em' }}
-                >
-                  Forgot?
-                </Link>
-              </div>
+                Confirm new password
+              </label>
               <input
-                id="password"
-                name="password"
+                id="confirm"
+                name="confirm"
                 type="password"
                 required
-                autoComplete="current-password"
-                placeholder="••••••••"
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="Re-enter your new password"
                 className="input"
                 style={{ fontSize: 14 }}
               />
@@ -142,27 +143,17 @@ export default async function SignInPage({ searchParams }: Props) {
                 transition: 'background 0.15s ease, box-shadow 0.15s ease',
               }}
             >
-              Sign in
+              Update password
             </button>
           </form>
         </div>
 
         <p style={{ marginTop: 24, textAlign: 'center', fontSize: 13.5, color: 'var(--text-muted)', letterSpacing: '-0.01em' }}>
-          Don&apos;t have an account?{' '}
           <Link
-            href="/signup"
+            href="/signin"
             style={{ fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}
           >
-            Create one
-          </Link>
-        </p>
-
-        <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '-0.01em' }}>
-          <Link
-            href="/evaluate"
-            style={{ fontWeight: 500, color: 'var(--text-muted)', textDecoration: 'none' }}
-          >
-            ← Free EB-1A evaluator
+            Back to sign in
           </Link>
         </p>
       </div>
