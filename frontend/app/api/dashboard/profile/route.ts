@@ -38,7 +38,11 @@ export async function GET() {
       : 0
   }
 
-  return NextResponse.json({ ...profile, criterion_scores })
+  const name = typeof user.user_metadata?.full_name === 'string'
+    ? user.user_metadata.full_name
+    : null
+
+  return NextResponse.json({ ...profile, criterion_scores, name })
 }
 
 export async function PATCH(request: Request) {
@@ -51,6 +55,11 @@ export async function PATCH(request: Request) {
     domain, role, salary_band, country_of_origin, target_field,
     filing_urgency, focused_criteria, education, target_filing_date,
   } = body
+
+  // Display name lives in auth user metadata (no profiles column needed).
+  if (typeof body.name === 'string') {
+    await supabase.auth.updateUser({ data: { full_name: body.name.trim() } })
+  }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (domain !== undefined) updates.domain = domain

@@ -25,6 +25,7 @@ function emptyEvidence(): EvidenceItem {
 }
 
 type ProfileFields = {
+  name: string
   domain: string
   role: string
   salary_band: string
@@ -37,6 +38,7 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null)
   const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([emptyEvidence()])
   const [profile, setProfile] = useState<ProfileFields>({
+    name: '',
     domain: '',
     role: '',
     salary_band: '',
@@ -65,6 +67,7 @@ export default function OnboardingPage() {
   async function handleSubmit(formData: FormData) {
     setError(null)
     // Re-inject Step 1 values — they're unmounted from the DOM when Step 2 is shown
+    formData.set('name', profile.name)
     formData.set('domain', profile.domain)
     formData.set('role', profile.role)
     formData.set('salary_band', profile.salary_band)
@@ -95,6 +98,22 @@ export default function OnboardingPage() {
       <form action={handleSubmit} className="space-y-6">
         {step === 1 && (
           <div className="space-y-5 rounded-lg border border-gray-200 bg-white p-6">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Your name
+              </label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                value={profile.name}
+                onChange={(e) => updateProfile('name', e.target.value)}
+                placeholder="e.g. Jane Doe"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
             <div>
               <label htmlFor="domain" className="block text-sm font-medium text-gray-700">
                 Domain / Field

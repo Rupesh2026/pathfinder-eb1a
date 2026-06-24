@@ -19,6 +19,12 @@ export async function saveOnboarding(formData: FormData) {
     return { error: 'Not authenticated' }
   }
 
+  // Save the display name to auth user metadata (surfaced on the dashboard).
+  const name = (formData.get('name') as string | null)?.trim()
+  if (name) {
+    await supabase.auth.updateUser({ data: { full_name: name } })
+  }
+
   const evidenceRaw = formData.get('evidence') as string
   let evidenceItems: EvidenceInput[] = []
 

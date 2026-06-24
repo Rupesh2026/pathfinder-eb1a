@@ -48,6 +48,7 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [name, setName] = useState('')
   const [domain, setDomain] = useState('')
   const [role, setRole] = useState('')
   const [salaryBand, setSalaryBand] = useState<SalaryBand>('300k_plus')
@@ -63,6 +64,7 @@ export default function ProfilePage() {
     fetch('/api/dashboard/profile', { cache: 'no-store' })
       .then(r => r.json())
       .then(data => {
+        setName(data.name ?? '')
         setDomain(data.domain ?? '')
         setRole(data.role ?? '')
         setSalaryBand(data.salary_band ?? '300k_plus')
@@ -93,7 +95,7 @@ export default function ProfilePage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          domain, role, salary_band: salaryBand, country_of_origin: countryOfOrigin,
+          name, domain, role, salary_band: salaryBand, country_of_origin: countryOfOrigin,
           target_field: targetField, filing_urgency: filingUrgency,
           focused_criteria: focusedCriteria, education,
           target_filing_date: targetFilingDate || null,
@@ -147,6 +149,7 @@ export default function ProfilePage() {
         <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Personal info</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {[
+            { label: 'Name', value: name, setter: setName, placeholder: 'e.g. Jane Doe' },
             { label: 'Domain', value: domain, setter: setDomain, placeholder: 'e.g. AI/ML Research' },
             { label: 'Role', value: role, setter: setRole, placeholder: 'e.g. Senior ML Engineer' },
             { label: 'Country of origin', value: countryOfOrigin, setter: setCountryOfOrigin, placeholder: 'e.g. India' },

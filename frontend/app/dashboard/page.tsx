@@ -10,6 +10,7 @@ import OutcomeTracker from './components/OutcomeTracker'
 import ScanButton from './components/ScanButton'
 import Toast from './components/Toast'
 import ReadinessCard from './components/ReadinessCard'
+import ReadinessRoadmap from './components/ReadinessRoadmap'
 import UpcomingDeadlines from './components/UpcomingDeadlines'
 import type { OutcomeItem } from './hooks/useDashboard'
 import { RefreshCw } from 'lucide-react'
@@ -47,9 +48,7 @@ export default function CommandCenter() {
   })
 
   const isMock = summary?._is_mock ?? false
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const name = profile?.role?.split(' ')[0] ?? ''
+  const name = profile?.name?.trim().split(' ')[0] ?? ''
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -58,7 +57,7 @@ export default function CommandCenter() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            {greeting}{name ? `, ${name}` : ''} 👋
+            Hey{name ? `, ${name}` : ''} 👋
           </h1>
           <p className="mt-0.5 text-sm" style={{ color: 'var(--text-muted)' }}>{today}</p>
         </div>
@@ -90,6 +89,11 @@ export default function CommandCenter() {
       {/* ── Overview ─────────────────────────────────────── */}
       <Section label="Overview" hint="Your case at a glance">
         <StatsRow summary={summary} loading={loading} targetFilingDate={profile?.target_filing_date} />
+      </Section>
+
+      {/* ── Roadmap: where you stand + criteria tracking ─── */}
+      <Section label="Your roadmap" hint="Where you stand, what suits you, and what to push next">
+        <ReadinessRoadmap profile={profile} loading={loading} onRefresh={refresh} />
       </Section>
 
       {/* ── Today's focus: plan + readiness + deadlines ──── */}

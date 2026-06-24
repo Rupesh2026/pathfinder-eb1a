@@ -16,7 +16,10 @@ const NEXT_ACTIONS: Record<CriterionType, string[]> = {
   commercial_success: ['Document revenue from products you built', 'Collect download/usage metrics for open-source work', 'Get signed letter attributing business impact to your work'],
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // `?all=1` returns every criterion unfiltered (used by the roadmap, which needs
+  // all 10 to position dots and suggest a focus). The default keeps the focus filter.
+  const showAll = new URL(request.url).searchParams.get('all') === '1'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -71,7 +74,7 @@ export async function GET() {
     }
   })
 
-  const filtered = focusedCriteria.length > 0
+  const filtered = (!showAll && focusedCriteria.length > 0)
     ? result.filter(c => focusedCriteria.includes(c.criterion))
     : result
 

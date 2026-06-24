@@ -85,6 +85,7 @@ export type SummaryData = {
 }
 
 export type ProfileData = {
+  name: string | null
   domain: string
   role: string
   salary_band: string
