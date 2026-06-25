@@ -63,6 +63,17 @@ export default function ScanButton({ initialStatus, initialFinishedAt, onScanCom
     return stopPolling
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The main dashboard loads `summary` asynchronously, so initialFinishedAt /
+  // initialStatus are undefined on first mount and only arrive later. Sync them
+  // into state (unless a scan is actively running) so "Last scan …" appears.
+  useEffect(() => {
+    if (scanning) return
+    if (initialFinishedAt) setFinishedAt(initialFinishedAt)
+    if (initialStatus && initialStatus !== 'running' && initialStatus !== 'queued') {
+      setStatus(initialStatus as ScanStatus)
+    }
+  }, [initialFinishedAt, initialStatus, scanning])
+
   useEffect(() => {
     const update = () => { if (finishedAt) setTimeLabel(timeAgo(finishedAt)); forceUpdate(n => n + 1) }
     update()
