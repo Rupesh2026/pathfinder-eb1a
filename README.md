@@ -3,6 +3,7 @@
 An open-source multi-agent system that helps you build your EB-1A (extraordinary ability) immigration case. Agents run daily, discover real opportunities worldwide that fill your evidence gaps, score your profile against USCIS standards, and deliver a personalized action plan every morning — without you having to prompt anything.
 
 > Built with Next.js 14, Supabase, Python + Google ADK, and OpenAI/Gemini.
+> **Open source under the [MIT License](LICENSE)** — free to use, self-host, fork, and modify. This guide walks you through running the whole stack from scratch; no prior knowledge of the codebase is assumed.
 
 ![Pathfinder Dashboard](docs/dashboard-preview.png)
 
@@ -36,6 +37,60 @@ This system automates the discovery and planning work:
 | Embeddings | OpenAI text-embedding-3-small |
 | Advisor chat | Anthropic Claude → Gemini → OpenAI (first key available, frontend) |
 | Hosting | Render (full stack via Blueprint); frontend also deployable to Vercel |
+
+---
+
+## Dependencies
+
+Everything is installed for you by `npm install` (frontend) and `pip install -r requirements.txt` (agents) — you don't install these by hand. They're listed here so you know exactly what the project pulls in and why.
+
+### Frontend — Node / npm (`frontend/package.json`)
+
+| Package | Version | Purpose |
+|---|---|---|
+| `next` | ^14.2 | React framework — App Router, server actions, API routes |
+| `react`, `react-dom` | ^18.3 | UI runtime |
+| `@supabase/ssr` | ^0.6 | Cookie-based Supabase auth for the App Router (PKCE) |
+| `@supabase/supabase-js` | ^2.69 | Supabase database + auth client |
+| `@anthropic-ai/sdk` | ^0.39 | Advisor chat — Anthropic Claude (1st choice) |
+| `@google/generative-ai` | ^0.24 | Advisor chat — Gemini (fallback) |
+| `openai` | ^6.39 | Advisor chat (fallback) + evaluator scoring |
+| `lucide-react` | ^1.17 | Icon set |
+| **dev:** `typescript` ^5, `tailwindcss` ^3.4, `postcss` ^8.4, `autoprefixer` ^10.4, `@types/*` | | Build-time tooling and types |
+
+### Agent service — Python / pip (`agents/requirements.txt`)
+
+| Package | Version | Purpose |
+|---|---|---|
+| `google-adk[extensions]` | >=1.0 | Agent framework (the agent runtime) |
+| `google-genai` | >=1.0 | Gemini model SDK |
+| `openai` | >=1.30 | OpenAI SDK — agents (gpt-4o-mini) + embeddings |
+| `litellm` | >=1.0 | Provider-agnostic LLM routing (OpenAI/Gemini switch) |
+| `supabase` | >=2.5 | Supabase client (service-role, server-side) |
+| `fastapi` | >=0.111 | HTTP API for the agent endpoints |
+| `uvicorn[standard]` | >=0.30 | ASGI server that runs FastAPI |
+| `httpx` | >=0.27 | HTTP client (Tavily web search) |
+| `pdfplumber` | >=0.10 | Parse USCIS AAO decision PDFs |
+| `beautifulsoup4` | >=4.12 | Scrape policy / decision HTML |
+| `python-dateutil` | >=2.9 | Robust deadline/date parsing |
+| `python-dotenv` | >=1.0 | Load `agents/.env` locally |
+
+### Root — orchestration (`package.json`)
+
+| Package | Purpose |
+|---|---|
+| `concurrently` | Runs the agent service and frontend together with one `npm run dev` |
+
+### External services (accounts / API keys you provide)
+
+| Service | Required? | Used for |
+|---|---|---|
+| [Supabase](https://supabase.com) | **Yes** | Auth + Postgres + pgvector (free tier is enough) |
+| [OpenAI](https://platform.openai.com) | **Yes** | Agent reasoning + embeddings |
+| [Tavily](https://tavily.com) | **Yes** | Worldwide opportunity web search (free tier is enough) |
+| [Anthropic](https://console.anthropic.com) **or** [Gemini](https://aistudio.google.com) | **Yes** (one of them) | Dashboard AI advisor chat |
+| [Render](https://render.com) | Only to deploy | Hosting + cron jobs (local dev needs none of it) |
+| [Resend](https://resend.com) | Optional | Evaluator / password-reset emails |
 
 ---
 
@@ -138,6 +193,8 @@ All user tables use Row Level Security (`auth.uid() = user_id`). The agent servi
 ---
 
 ## Setup
+
+Anyone can run the full stack locally — it takes about 10–15 minutes. The flow is: install dependencies → create a free Supabase project and run the migrations → add your API keys to two `.env` files → start both services. Each step below is copy-paste ready.
 
 ### Prerequisites
 
@@ -309,12 +366,15 @@ cd frontend
 npm run dev
 ```
 
-**macOS / Linux — single command (uses `concurrently`):**
+**Single command (uses `concurrently`):**
+
+After steps 2 and 3 (frontend `npm install` and the agent venv) are done, you can start both services with one command from the repo root:
 
 ```bash
-# From the repo root
-npm install        # installs concurrently
-npm run dev        # starts both agents and frontend
+# From the repo root — installs only `concurrently`, then runs both services.
+# Requires that you already ran `npm install` in frontend/ and set up the agent venv.
+npm install
+npm run dev
 ```
 
 **Windows — PowerShell convenience script:**
@@ -460,7 +520,7 @@ Please open an issue before starting significant work so we can discuss the appr
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+This project is **open source** under the **MIT License** — see [LICENSE](LICENSE). You are free to use, copy, modify, self-host, and distribute it, including commercially, provided the copyright notice is retained. No warranty is provided.
 
 ---
 
