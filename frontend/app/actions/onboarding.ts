@@ -39,15 +39,23 @@ export async function saveOnboarding(formData: FormData) {
     return { error: 'At least one evidence item with a criterion and title is required.' }
   }
 
-  const { error: profileError } = await supabase.from('profiles').insert({
-    user_id: user.id,
-    domain: formData.get('domain') as string,
-    role: formData.get('role') as string,
-    salary_band: formData.get('salary_band') as SalaryBand,
-    country_of_origin: formData.get('country_of_origin') as string,
-    target_field: formData.get('target_field') as string,
-    strategy_weights: DEFAULT_STRATEGY_WEIGHTS,
-  })
+  // Upsert (not insert) on user_id: profiles has UNIQUE(user_id), so a plain
+  // insert throws "duplicate key value violates unique constraint
+  // profile_user_id_key" if the user re-runs onboarding, double-submits, or
+  // retries after a first attempt where the profile saved but evidence failed.
+  // Upsert makes re-submission idempotent — it updates the existing row instead.
+  const { error: profileError } = await supabase.from('profiles').upsert(
+    {
+      user_id: user.id,
+      domain: formData.get('domain') as string,
+      role: formData.get('role') as string,
+      salary_band: formData.get('salary_band') as SalaryBand,
+      country_of_origin: formData.get('country_of_origin') as string,
+      target_field: formData.get('target_field') as string,
+      strategy_weights: DEFAULT_STRATEGY_WEIGHTS,
+    },
+    { onConflict: 'user_id' }
+  )
 
   if (profileError) {
     return { error: profileError.message }
