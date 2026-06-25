@@ -50,10 +50,12 @@ export default function ScanButton({ initialStatus, initialFinishedAt, onScanCom
         if (s === 'done') {
           onScanComplete?.()
           if (redirectTo) router.push(redirectTo)
+        } else {
+          onError?.('Scan failed — the agent server hit an error. Please try again.')
         }
       }
     } catch {}
-  }, [stopPolling, onScanComplete, redirectTo, router])
+  }, [stopPolling, onScanComplete, onError, redirectTo, router])
 
   useEffect(() => {
     if (initialStatus === 'running' || initialStatus === 'queued') {

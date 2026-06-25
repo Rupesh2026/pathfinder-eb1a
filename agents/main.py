@@ -225,6 +225,11 @@ async def run_daily_agents_for_user(user_id: str) -> None:
         log.info(f"[{user_id}] Daily pipeline complete")
     except Exception as exc:
         log.exception(f"[{user_id}] Daily pipeline failed: {exc}")
+        # Re-raise so callers can detect failure. _bg_scan relies on this to set
+        # scan_status='error' (otherwise a failed on-demand scan is silently
+        # reported to the user as 'done'). The batch cron isolates per-user
+        # failures in its own loop.
+        raise
 
 
 async def run_weekly_reflection_for_user(user_id: str) -> None:
@@ -299,9 +304,15 @@ async def run_daily_agents(x_api_key: str = Header(...)):
     _verify_api_key(x_api_key)
     user_ids = _get_active_user_ids()
     log.info(f"Running daily pipeline for {len(user_ids)} users")
+    processed = 0
     for user_id in user_ids:
-        await run_daily_agents_for_user(user_id)
-    return {"status": "ok", "users_processed": len(user_ids)}
+        # Isolate per-user failures so one user's error doesn't abort the batch.
+        try:
+            await run_daily_agents_for_user(user_id)
+            processed += 1
+        except Exception as exc:
+            log.exception(f"[{user_id}] Skipped in batch run: {exc}")
+    return {"status": "ok", "users_processed": processed}
 
 
 @app.post("/run-daily-agent")
