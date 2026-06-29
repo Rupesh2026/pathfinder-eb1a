@@ -5,8 +5,10 @@ An open-source multi-agent system that helps you build your EB-1A (extraordinary
 > Built with Next.js 14, Supabase, Python + Google ADK, and OpenAI/Gemini.
 > **Open source under the [MIT License](LICENSE)** — free to use, self-host, fork, and modify. This guide walks you through running the whole stack from scratch; no prior knowledge of the codebase is assumed.
 
+### Dashboard
 ![Pathfinder Dashboard](docs/dashboard-preview.png)
 
+### Opportunities
 ![Pathfinder Opportunities](docs/opportunities-preview.png)
 
 ---
