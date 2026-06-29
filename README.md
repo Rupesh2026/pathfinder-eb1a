@@ -7,6 +7,8 @@ An open-source multi-agent system that helps you build your EB-1A (extraordinary
 
 ![Pathfinder Dashboard](docs/dashboard-preview.png)
 
+![Pathfinder Opportunities](docs/opportunities-preview.png)
+
 ---
 
 ## What it does
